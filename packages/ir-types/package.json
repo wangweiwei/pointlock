@@ -1,6 +1,6 @@
 {
   "name": "@pointlock/ir-types",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Type-only package generated from the pointlock-ir FlowIR schema (R12). Do not edit src/ by hand \u2014 run `pnpm generate` after re-emitting the Rust-side schema.",
   "type": "module",

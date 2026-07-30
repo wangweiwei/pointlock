@@ -1,6 +1,6 @@
 {
   "name": "@pointlock/nl-drafter",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "NL → YAML draft assistant (03 §4.1/§4.1.1). Lives outside the trust boundary: it only drafts *.flow.yaml and asks structured elicitation questions; `pointlock compile` is the sole enforcer.",
   "type": "module",
   "license": "Apache-2.0",
