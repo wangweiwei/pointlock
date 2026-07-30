@@ -1,6 +1,6 @@
 {
   "name": "@pointlock/projection-types",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Type-only package generated from the pointlock-store projection schemas (spine §10.2, R14). Do not edit src/ by hand — run `pnpm generate` after re-emitting the Rust-side schemas.",
   "type": "module",
   "license": "Apache-2.0",

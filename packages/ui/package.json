@@ -1,6 +1,6 @@
 {
   "name": "@pointlock/ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "The v0.1 renderer (08): a read-only projection console over the projection protocol. Consumes @pointlock/projection-types ONLY — never store internals (M3a acceptance 8).",
   "type": "module",
