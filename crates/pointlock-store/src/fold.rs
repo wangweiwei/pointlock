@@ -731,7 +731,7 @@ impl FoldState {
                     self.status = RunStatus::Running;
                 }
             }
-            RunLogPayload::RunSuspended { reason: _, .. } => {
+            RunLogPayload::RunSuspended { .. } => {
                 // Run-level status only; the frontier keeps its last
                 // step-level state so resume knows where the step stood.
                 // A suspension while a human request is pending keeps the
