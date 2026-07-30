@@ -93,10 +93,10 @@ print_status() { # print_status <version> ；发布过任何一个包则返回 1
 
 require_unpublished() { # require_unpublished <version>
 	for c in "${CRATES[@]}"; do
-		crates_has "$c" "$1" && die "$1 已发布在 crates.io（$c），registry 版本不可变，请换一个 bump"
+		crates_has "$c" "$1" && die "$1 已发布在 crates.io（${c}），registry 版本不可变，请换一个 bump"
 	done
 	for p in "${NPM_PACKAGES[@]}"; do
-		npm_has "$p" "$1" && die "$1 已发布在 npm（$p），registry 版本不可变，请换一个 bump"
+		npm_has "$p" "$1" && die "$1 已发布在 npm（${p}），registry 版本不可变，请换一个 bump"
 	done
 	return 0
 }
@@ -207,11 +207,11 @@ cmd_publish() { # cmd_publish [bump]
 		tag="v$current"
 		tag_absent "$tag" || die "$current 已打过 tag，请选 major / minor / patch"
 		require_unpublished "$current"
-		info "首发当前版本 $current：不改文件，直接对 HEAD 打 tag $tag"
+		info "首发当前版本 ${current}：不改文件，直接对 HEAD 打 tag $tag"
 		git push origin "$BRANCH"
 		git tag -a "$tag" -m "$tag"
 		git push origin "$tag"
-		info "已 push $tag，release.yml 将开始自动发布"
+		info "已 push ${tag}，release.yml 将开始自动发布"
 		return
 	fi
 
@@ -227,7 +227,7 @@ cmd_publish() { # cmd_publish [bump]
 	git push origin "$BRANCH"
 	git tag -a "$tag" -m "$tag"
 	git push origin "$tag"
-	info "已 push $tag，release.yml 将开始自动发布"
+	info "已 push ${tag}，release.yml 将开始自动发布"
 }
 
 cmd_prepare() { # cmd_prepare [bump]
@@ -237,7 +237,7 @@ cmd_prepare() { # cmd_prepare [bump]
 	current="$(current_version)"
 	bump="${1:-$(choose_release "$current")}"
 	if [ "$bump" = "current" ]; then
-		info "树里已是未发布的 $current，无需改写；发布执行: scripts/release.sh publish current"
+		info "树里已是未发布的 ${current}，无需改写；发布执行: scripts/release.sh publish current"
 		return
 	fi
 	case "$bump" in major | minor | patch) ;; *) die "bump 应为 current / major / minor / patch" ;; esac
@@ -246,7 +246,7 @@ cmd_prepare() { # cmd_prepare [bump]
 	require_unpublished "$new"
 	apply_version "$current" "$new"
 	git diff --name-only | sed 's/^/  /'
-	info "已改写为 $new（未提交）：补好 CHANGELOG 正文并提交后，打 tag v$new 推送即发布"
+	info "已改写为 ${new}（未提交）：补好 CHANGELOG 正文并提交后，打 tag v$new 推送即发布"
 }
 
 cmd_status() { # cmd_status [version]

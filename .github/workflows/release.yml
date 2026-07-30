@@ -40,11 +40,28 @@ jobs:
       # `actions/checkout` rejects outright ("Input required and not supplied")
       # instead of treating as absent. For a private sibling, add back
       # `token: ${{ secrets.DEVICERAIL_TOKEN }}`.
+      # Fail fast with the actual cause. Left unset, `repository:` receives an
+      # empty string and actions/checkout silently falls back to checking out
+      # THIS repository into device-rail/ — the failure then surfaces much
+      # later as a baffling cargo metadata error inside the gates.
+      - name: Require the DEVICERAIL_REPO repository variable
+        if: ${{ vars.DEVICERAIL_REPO == '' }}
+        run: |
+          echo "::error::Repository variable DEVICERAIL_REPO is not set. Add it under Settings → Secrets and variables → Actions → Variables (the Variables tab, not Secrets) with value owner/name of the DeviceRail repo, then re-run this workflow."
+          exit 1
+
       - name: Check out the DeviceRail sibling (workspace resolution)
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.DEVICERAIL_REPO }}
           path: device-rail
+
+      - name: Verify the sibling checkout is really DeviceRail
+        run: |
+          test -f device-rail/crates/client/Cargo.toml || {
+            echo "::error::device-rail/crates/client/Cargo.toml is missing — DEVICERAIL_REPO does not point at the DeviceRail repository."
+            exit 1
+          }
 
       - uses: dtolnay/rust-toolchain@stable
         with:
