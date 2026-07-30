@@ -100,6 +100,44 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+
+          # crates.io throttles the creation of NEW crates: a burst of five,
+          # then one per ten minutes. A ten-crate first release therefore
+          # cannot finish in one pass, and the rejection is a 429 naming the
+          # exact instant the window reopens. Wait for that instant and retry
+          # rather than making a human re-run the workflow once per crate.
+          # Only new-crate creation is throttled this hard — later releases
+          # publish versions of existing crates under a far looser limit, so
+          # this backoff is effectively first-release-only.
+          publish_with_backoff() {
+            local crate="$1" attempt log retry_at target now wait
+            log="$(mktemp)"
+            for attempt in 1 2 3 4 5 6 7 8; do
+              if cargo publish -p "$crate" >"$log" 2>&1; then
+                cat "$log"; rm -f "$log"; return 0
+              fi
+              cat "$log"
+              retry_at="$(sed -n 's/.*Please try again after \(.*\) and see.*/\1/p' "$log" | head -1)"
+              if [ -z "$retry_at" ]; then
+                rm -f "$log"
+                echo "::error::publishing $crate failed for a reason other than rate limiting"
+                return 1
+              fi
+              target="$(date -u -d "$retry_at" +%s 2>/dev/null || echo '')"
+              now="$(date -u +%s)"
+              if [ -z "$target" ] || [ "$target" -le "$now" ]; then
+                wait=60
+              else
+                wait=$(( target - now + 15 ))
+              fi
+              echo "::notice::crates.io rate limit hit on $crate; waiting ${wait}s until $retry_at (attempt $attempt)"
+              sleep "$wait"
+            done
+            rm -f "$log"
+            echo "::error::$crate still rate limited after 8 attempts"
+            return 1
+          }
+
           for c in \
             pointlock-ir \
             pointlock-expr \
@@ -127,7 +165,7 @@ jobs:
               exit 1
             fi
             echo "::group::cargo publish -p $c"
-            cargo publish -p "$c"
+            publish_with_backoff "$c"
             echo "::endgroup::"
           done
 
