@@ -34,14 +34,17 @@ jobs:
       # The workspace can only be *resolved* with the DeviceRail client present:
       # pointlock-provider-devicerail (a member) depends on it via the sibling
       # path `../device-rail/crates/client`. Set the repository variable
-      # DEVICERAIL_REPO (owner/name); add the secret DEVICERAIL_TOKEN if it is
-      # private. Checking it out next to `pointlock/` makes the path resolve.
+      # DEVICERAIL_REPO (owner/name); checking it out next to `pointlock/` makes
+      # the path resolve. The repository is public, so no token is passed: an
+      # unset DEVICERAIL_TOKEN would arrive as an empty string, which
+      # `actions/checkout` rejects outright ("Input required and not supplied")
+      # instead of treating as absent. For a private sibling, add back
+      # `token: ${{ secrets.DEVICERAIL_TOKEN }}`.
       - name: Check out the DeviceRail sibling (workspace resolution)
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.DEVICERAIL_REPO }}
           path: device-rail
-          token: ${{ secrets.DEVICERAIL_TOKEN }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:

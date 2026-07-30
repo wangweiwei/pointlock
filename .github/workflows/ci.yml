@@ -46,8 +46,10 @@ jobs:
   # SKIPPED unless a repository variable `DEVICERAIL_REPO` is set (owner/name of the
   # DeviceRail repo the runner can access); set it under Settings → Secrets and
   # variables → Actions → Variables to activate the job.
-  # If the DeviceRail repo is private, also add a `DEVICERAIL_TOKEN` secret (a PAT or
-  # deploy key with read access) — it is consumed by the checkout step below.
+  # The DeviceRail repo is public, so the sibling checkout passes no token: an
+  # unset DEVICERAIL_TOKEN would arrive as an empty string, which
+  # `actions/checkout` rejects outright instead of treating as absent. For a
+  # private sibling, add the secret back as `token:` on the checkout step.
   # See CONTRIBUTING.md.
   rust:
     name: Rust (fmt + clippy + test)
@@ -62,7 +64,6 @@ jobs:
         with:
           repository: ${{ vars.DEVICERAIL_REPO }}
           path: device-rail
-          token: ${{ secrets.DEVICERAIL_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
