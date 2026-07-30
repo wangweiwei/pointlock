@@ -1,0 +1,23 @@
+{
+  "projectionVersion": 1,
+  "runId": "run-pending",
+  "flowId": "demo",
+  "requestId": "req-gate",
+  "purpose": "supervision",
+  "prompt": "about to tap a mutating control",
+  "presents": [],
+  "requestedAtMs": 2030,
+  "requestedSeq": 3,
+  "runPath": "demo@aaaaaaaa/guarded",
+  "runPathFrames": [
+    {
+      "kind": "flow",
+      "flowId": "demo",
+      "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "kind": "step",
+      "stepId": "guarded"
+    }
+  ]
+}

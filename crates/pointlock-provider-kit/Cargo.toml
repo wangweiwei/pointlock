@@ -1,0 +1,28 @@
+[package]
+name = "pointlock-provider-kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "The Pointlock Provider SPI: the Rust trait a backend implements to execute FlowIR actions."
+keywords = ["pointlock", "provider", "spi", "automation", "workflow"]
+categories = ["development-tools"]
+
+[dependencies]
+pointlock-ir = { workspace = true }
+async-trait = { workspace = true }
+futures-core = { workspace = true }
+futures-util = { workspace = true }
+tokio-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+sha2 = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

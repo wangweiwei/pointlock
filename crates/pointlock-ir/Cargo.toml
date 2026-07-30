@@ -1,0 +1,27 @@
+[package]
+name = "pointlock-ir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Pointlock's Typed IR: the content-addressed, dual-hash intermediate representation for capability-bound flows."
+keywords = ["pointlock", "automation", "ir", "workflow", "serde"]
+categories = ["data-structures", "encoding"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+jsonschema = { workspace = true }
+
+[[bin]]
+name = "pointlock-ir-schema-gen"
+path = "src/bin/pointlock-ir-schema-gen.rs"

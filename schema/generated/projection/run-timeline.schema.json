@@ -1,0 +1,819 @@
+{
+  "$defs": {
+    "BoundedValue": {
+      "additionalProperties": false,
+      "description": "A bounded JSON digest (08 §4.4): truncation is always explicit.",
+      "properties": {
+        "truncated": {
+          "description": "Whether anything was cut while bounding.",
+          "type": "boolean"
+        },
+        "value": {
+          "description": "The digest value (depth- and size-bounded)."
+        }
+      },
+      "required": [
+        "value",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "RunTimelineEntry": {
+      "additionalProperties": false,
+      "description": "One timeline entry (spine §10.1 `RunTimelineEntry`).",
+      "properties": {
+        "atMs": {
+          "description": "Wall clock, informational only.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "detail": {
+          "$ref": "#/$defs/TimelineDetail",
+          "description": "Bounded typed detail (discriminant = RunLog event type)."
+        },
+        "evidence": {
+          "description": "Evidence references (≤ 32; pure references — 08 §4.3).",
+          "items": {
+            "$ref": "#/$defs/TimelineEvidenceRef"
+          },
+          "type": "array"
+        },
+        "evidenceOmitted": {
+          "description": "How many evidence references were dropped by the cap.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runPath": {
+          "description": "Canonical run-path string of the event.",
+          "type": "string"
+        },
+        "seq": {
+          "description": "Ledger sequence — the ordering authority (08 §4.1).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "description": "Whether any field of this entry was truncated while bounding.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "atMs",
+        "runPath",
+        "detail",
+        "evidence",
+        "evidenceOmitted",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "RunTimelineFilter": {
+      "description": "The five-value filter vocabulary (08 §4.2, verbatim from the\nDeviceRail `TimelineFilter`).",
+      "oneOf": [
+        {
+          "const": "all",
+          "description": "Every event (structural events are ONLY here).",
+          "type": "string"
+        },
+        {
+          "const": "observations",
+          "description": "`observationRecorded`.",
+          "type": "string"
+        },
+        {
+          "const": "actions",
+          "description": "`actionIntent` + `actionSettled` (intent/terminal pairs).",
+          "type": "string"
+        },
+        {
+          "const": "errors",
+          "description": "Failed/cancelled/timedOut settlements + `handlerTriggered(onError)`.",
+          "type": "string"
+        },
+        {
+          "const": "verdicts",
+          "description": "`preflightProbed` + `assertionEvaluated` + `verdictRecorded`.",
+          "type": "string"
+        }
+      ]
+    },
+    "StepState": {
+      "description": "Step lifecycle state (spine §6.2/A.4, closed 14-value set).\n\n`awaitingHuman` doubles as the supervision-gate wait state (R13):\nthe exit path is discriminated by the pending request's `purpose`.",
+      "oneOf": [
+        {
+          "const": "pending",
+          "description": "Not yet reached.",
+          "type": "string"
+        },
+        {
+          "const": "ready",
+          "description": "Inputs resolved and snapshotted; ready to act.",
+          "type": "string"
+        },
+        {
+          "const": "probing",
+          "description": "Preflight probes running.",
+          "type": "string"
+        },
+        {
+          "const": "acting",
+          "description": "Action dispatched (entered only after the actionIntent WAL fsync).",
+          "type": "string"
+        },
+        {
+          "const": "settling",
+          "description": "Awaiting the four-way terminal outcome.",
+          "type": "string"
+        },
+        {
+          "const": "observing",
+          "description": "Capturing/localizing observations and evidence.",
+          "type": "string"
+        },
+        {
+          "const": "asserting",
+          "description": "Pure assertion evaluation.",
+          "type": "string"
+        },
+        {
+          "const": "judged",
+          "description": "Terminal: verdict folded (or no-verdict for unasserted mutations).",
+          "type": "string"
+        },
+        {
+          "const": "skipped",
+          "description": "Terminal: an `if` branch not taken.",
+          "type": "string"
+        },
+        {
+          "const": "blocked",
+          "description": "Terminal: upstream failure with halt policy.",
+          "type": "string"
+        },
+        {
+          "const": "drifted",
+          "description": "Resume probe failed; awaiting onResumeDrift disposition.",
+          "type": "string"
+        },
+        {
+          "const": "awaitingHuman",
+          "description": "Suspended awaiting a human response (step or supervision purpose).",
+          "type": "string"
+        },
+        {
+          "const": "suspended",
+          "description": "Run suspended while this step was in flight.",
+          "type": "string"
+        },
+        {
+          "const": "aborted",
+          "description": "Terminal: aborted by handler or user decision.",
+          "type": "string"
+        }
+      ]
+    },
+    "TimelineDetail": {
+      "description": "The typed per-event detail of one entry. A closed enum mirroring the\n17-variant RunLog union, carrying only bounded summaries — full\npayloads stay in the dossier (08 §4.4).",
+      "oneOf": [
+        {
+          "description": "Run opened.",
+          "properties": {
+            "supervisePolicy": {
+              "description": "Supervision policy, explicit `null` when unsupervised (R13).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "runStarted",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Step span opened.",
+          "properties": {
+            "stepId": {
+              "description": "The entered step.",
+              "type": "string"
+            },
+            "type": {
+              "const": "stepEntered",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "stepId"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Resume-drift probes evaluated.",
+          "properties": {
+            "fail": {
+              "description": "Failed probes.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pass": {
+              "description": "Probe outcome counts as `pass/fail/unknown`.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "preflightProbed",
+              "type": "string"
+            },
+            "unknown": {
+              "description": "Unknown probes.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unprobed": {
+              "description": "The step declared NO probes and this resume re-touched the world\nwithout checking it (07 §4.2 rule 1 / I3: 「没有探针的 resume 在\n报告中标 `unprobed`，而不是假装校验过」). Stated as a flag, not\nleft to be inferred from three zeroes — the whole point of the\nrule is that a reader sees it said.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "WAL intent (dispatch about to happen).",
+          "properties": {
+            "args": {
+              "$ref": "#/$defs/BoundedValue",
+              "description": "Bounded argument snapshot digest."
+            },
+            "callId": {
+              "description": "The dispatch correlation id.",
+              "type": "string"
+            },
+            "type": {
+              "const": "actionIntent",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "callId",
+            "args"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Action reached a terminal (four-way, never folded — 08 §2.5).",
+          "properties": {
+            "callId": {
+              "description": "The dispatch correlation id.",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TimelineErrorView"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Error surface on non-success terminals."
+            },
+            "executionMode": {
+              "description": "Execution mode when reported (`coordinateFallback` highlighted\nby renderers).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fallbackReason": {
+              "description": "Daemon-side degradation reason, when any.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "outcome": {
+              "description": "Terminal discriminant (`succeeded/failed/cancelled/timedOut`).",
+              "type": "string"
+            },
+            "type": {
+              "const": "actionSettled",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "callId",
+            "outcome"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Observation captured (legal omissions shown as-is).",
+          "properties": {
+            "capturedAtMs": {
+              "description": "Capture wall-clock.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observationId": {
+              "description": "Observation id.",
+              "type": "string"
+            },
+            "screenshotOmission": {
+              "description": "Screenshot omission reason, when omitted.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "observationRecorded",
+              "type": "string"
+            },
+            "uiSnapshotOmission": {
+              "description": "uiSnapshot omission reason, when omitted.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "observationId",
+            "capturedAtMs"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "One assertion evaluated.",
+          "properties": {
+            "assertId": {
+              "description": "The assertion.",
+              "type": "string"
+            },
+            "channel": {
+              "description": "Channel that completed evaluation, when one did.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reason": {
+              "description": "Bounded reason text.",
+              "type": "string"
+            },
+            "result": {
+              "description": "Three-valued result.",
+              "type": "string"
+            },
+            "type": {
+              "const": "assertionEvaluated",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "assertId",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Step verdict recorded (re-judgements append, never replace).",
+          "properties": {
+            "degraded": {
+              "description": "Degraded-verification marker.",
+              "type": "boolean"
+            },
+            "remoteArchivalError": {
+              "description": "Bounded `verdict.record` write-back failure — remote archival\nfailed; the local verdict is untouched (04 §5).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "description": "Three-valued status.",
+              "type": "string"
+            },
+            "summary": {
+              "description": "Bounded verdict summary.",
+              "type": "string"
+            },
+            "supersedes": {
+              "description": "Superseded verdict id, on re-judgement.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "verdictRecorded",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "status",
+            "degraded",
+            "summary"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Step span closed.",
+          "properties": {
+            "state": {
+              "$ref": "#/$defs/StepState",
+              "description": "Exit state (closed vocabulary)."
+            },
+            "type": {
+              "const": "stepExited",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "state"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Call frame pushed (subflow entered).",
+          "properties": {
+            "callee": {
+              "description": "Callee identity `flowId@sha256:…`.",
+              "type": "string"
+            },
+            "rebase": {
+              "description": "The frame was RE-ENTERED under a repaired callee rather than\nopened (07 §5.2 case (a) down-drill). Absent on every ordinary\npush and on every pre-incorporation ledger.",
+              "type": "boolean"
+            },
+            "type": {
+              "const": "callFramePushed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "callee"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Call frame popped (subflow returned).",
+          "properties": {
+            "hasOutputs": {
+              "description": "Whether the callee returned outputs.",
+              "type": "boolean"
+            },
+            "type": {
+              "const": "callFramePopped",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "hasOutputs"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Handler consulted (hook fired).",
+          "properties": {
+            "disposition": {
+              "description": "Declared disposition head (03 §1.8), when recorded.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hook": {
+              "description": "The hook.",
+              "type": "string"
+            },
+            "trigger": {
+              "description": "Trigger ordinal for the instance.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "handlerTriggered",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "hook",
+            "trigger"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Human request opened.",
+          "properties": {
+            "mode": {
+              "description": "Interaction mode on step requests.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prompt": {
+              "description": "Bounded prompt text.",
+              "type": "string"
+            },
+            "purpose": {
+              "description": "`step` vs `supervision` (R13).",
+              "type": "string"
+            },
+            "requestId": {
+              "description": "Pairing id.",
+              "type": "string"
+            },
+            "type": {
+              "const": "humanRequested",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "requestId",
+            "purpose",
+            "prompt"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Human response recorded through the arbitration door.",
+          "properties": {
+            "actor": {
+              "description": "Responding actor.",
+              "type": "string"
+            },
+            "purpose": {
+              "description": "`step` vs `supervision`.",
+              "type": "string"
+            },
+            "requestId": {
+              "description": "Pairing id.",
+              "type": "string"
+            },
+            "response": {
+              "$ref": "#/$defs/BoundedValue",
+              "description": "Bounded response digest."
+            },
+            "type": {
+              "const": "humanResponded",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "requestId",
+            "purpose",
+            "actor",
+            "response"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Run suspended (timeline shows the lineage divider — 08 §4.1).",
+          "properties": {
+            "reason": {
+              "description": "Suspension reason, explicit `null` when unstated.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "runSuspended",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Run resumed with an alignment report.",
+          "properties": {
+            "alignment": {
+              "$ref": "#/$defs/BoundedValue",
+              "description": "Per-class alignment counts, in class order."
+            },
+            "supervisePolicy": {
+              "description": "Supervision policy of the new segment (explicit `null` when\nunsupervised — never inherited, R13).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "runResumed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "alignment"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Run reached its terminal.",
+          "properties": {
+            "degraded": {
+              "description": "Degraded marker of the flow verdict.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "remoteArchivalError": {
+              "description": "Bounded `verdict.record` write-back failure of the flow\nverdict (04 §5 — see `verdictRecorded`).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "description": "Flow verdict status; absent = finished unverified/aborted.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "runFinished",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Fail-closed placeholder: the event exceeded the bounded-rendering\nlimits even after truncation; the full record is in the dossier\n(08 §4.4 — no half entries).",
+          "properties": {
+            "eventType": {
+              "description": "The original event discriminant.",
+              "type": "string"
+            },
+            "type": {
+              "const": "overLimit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "eventType"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TimelineErrorView": {
+      "additionalProperties": false,
+      "description": "Typed error surface on error-class entries (08 §4.2: ErrorClass +\n`ErrorInfo{code, message, retryable}`).",
+      "properties": {
+        "code": {
+          "description": "Provider error code (open set).",
+          "type": "string"
+        },
+        "errorClass": {
+          "description": "Closed taxonomy class, when the settlement carried one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "description": "Provider error message (bounded).",
+          "type": "string"
+        },
+        "retryable": {
+          "description": "Whether the provider marked the error retryable.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "TimelineEvidenceRef": {
+      "additionalProperties": false,
+      "description": "One evidence reference on a timeline entry — reference ONLY, never\nbytes (08 §4.3); dereference goes through the evidence route.",
+      "properties": {
+        "id": {
+          "description": "Provider-side asset id.",
+          "type": "string"
+        },
+        "mediaType": {
+          "description": "Media type of the referenced bytes.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Content address of the localized bytes (bare lowercase hex).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "mediaType",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:pointlock:schema:projection:v1:run-timeline",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One synchronous timeline page (08 §4.4: pagination never moves seen\nentries; `revision` tells the client when to re-pull).",
+  "properties": {
+    "entries": {
+      "description": "The page.",
+      "items": {
+        "$ref": "#/$defs/RunTimelineEntry"
+      },
+      "type": "array"
+    },
+    "filter": {
+      "$ref": "#/$defs/RunTimelineFilter",
+      "description": "Filter applied server-side."
+    },
+    "page": {
+      "description": "1-based page number.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "pageSize": {
+      "description": "Effective page size (≤ 50; requests can only shrink it).",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "projectionVersion": {
+      "const": 1,
+      "description": "Protocol version (spine §10.3)."
+    },
+    "revision": {
+      "description": "Snapshot revision (= max ledger seq at query time).",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "description": "The projected run.",
+      "type": "string"
+    },
+    "total": {
+      "description": "Total entries admitted by the filter.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "projectionVersion",
+    "runId",
+    "filter",
+    "page",
+    "pageSize",
+    "revision",
+    "total",
+    "entries"
+  ],
+  "title": "TimelinePage",
+  "type": "object"
+}

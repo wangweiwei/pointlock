@@ -1,0 +1,445 @@
+{
+  "$defs": {
+    "AssertionSummary": {
+      "additionalProperties": false,
+      "description": "One assertion summary row on an assert/action node (08 §3.4).",
+      "properties": {
+        "assertId": {
+          "description": "The assertion id.",
+          "type": "string"
+        },
+        "predicate": {
+          "description": "Predicate discriminant (`elementState`/`elementText`/`expr`/`visual`).",
+          "type": "string"
+        },
+        "verifyVia": {
+          "description": "Verify chain chips in `verifyVia` order (vision is always the\nchain tail and verify-only — principle 7).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "assertId",
+        "predicate",
+        "verifyVia"
+      ],
+      "type": "object"
+    },
+    "GraphEdge": {
+      "additionalProperties": false,
+      "description": "One semantic edge.",
+      "properties": {
+        "from": {
+          "description": "Source node id.",
+          "type": "string"
+        },
+        "hook": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HookBadge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Handler badge payload, present on `hook` edges."
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEdgeKind",
+          "description": "Edge class."
+        },
+        "label": {
+          "description": "Branch label (`\"then\"` / `\"else\"`), present on `branch` edges.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "description": "Target node id; absent on `hook` edges (the badge is the target).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "from"
+      ],
+      "type": "object"
+    },
+    "GraphEdgeKind": {
+      "description": "The closed semantic edge classes (spine §10.1).",
+      "oneOf": [
+        {
+          "const": "seq",
+          "description": "Sibling textual order (= v0.1 execution order).",
+          "type": "string"
+        },
+        {
+          "const": "branch",
+          "description": "`if` → then/else region entry.",
+          "type": "string"
+        },
+        {
+          "const": "hook",
+          "description": "Step → handler badge (handlers are never regular nodes — spine\nconcept 5; the badge payload rides on the edge).",
+          "type": "string"
+        }
+      ]
+    },
+    "GraphNode": {
+      "description": "One graph node. `id` is the flow-scoped `stepId` (unique across the\nwhole flow incl. nested regions — compiler-guaranteed, 08 §3.2).\n\nSerde stays lenient because of the flattened kind body (the StepIR\npattern); the schema closes the shape via schemars.",
+      "oneOf": [
+        {
+          "description": "`ActionStepIR` (08 §3.1): verb/action, effect badge, act chain.",
+          "properties": {
+            "actChain": {
+              "description": "The act chain channel chips, in `binding.attempts` order\n(08 §3.4 — one attempt means no fallback, none is invented).",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "actionName": {
+              "description": "First bound action name (the primary attempt's).",
+              "type": "string"
+            },
+            "assertionCount": {
+              "description": "Assertion count badge.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "action",
+              "type": "string"
+            },
+            "mutating": {
+              "description": "`mutating` (solid badge) vs `readonly` (hollow badge).",
+              "type": "boolean"
+            },
+            "verb": {
+              "description": "Canonical verb, when the step used one (snake_case values).",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "actionName",
+            "mutating",
+            "actChain",
+            "assertionCount"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`AssertStepIR`: observation source + assertion summaries.",
+          "properties": {
+            "assertions": {
+              "description": "Per-assertion summary rows: assertId + verify chain chips.",
+              "items": {
+                "$ref": "#/$defs/AssertionSummary"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "assert",
+              "type": "string"
+            },
+            "observe": {
+              "description": "`\"fresh\"` or the referenced `fromStep` step id.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "observe",
+            "assertions"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`CallStepIR` — the collapse node (08 §3.3): callee identity only;\nthe callee graph loads lazily by `calleeIrHash`.",
+          "properties": {
+            "calleeFlowId": {
+              "description": "Callee flow id.",
+              "type": "string"
+            },
+            "calleeIrHash": {
+              "description": "Callee content hash (full `sha256:` form; renderers may\nabbreviate to the 8-hex prefix).",
+              "type": "string"
+            },
+            "inputKeys": {
+              "description": "Input key names (values are authoring detail, not graph).",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "call",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "calleeFlowId",
+            "calleeIrHash",
+            "inputKeys"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`HumanStepIR` (08 §3.5): the pause-for-a-person node.",
+          "properties": {
+            "kind": {
+              "const": "human",
+              "type": "string"
+            },
+            "mode": {
+              "description": "Interaction mode.",
+              "type": "string"
+            },
+            "promptHead": {
+              "description": "First line of the prompt.",
+              "type": "string"
+            },
+            "timeoutMs": {
+              "description": "Response deadline; `on_timeout: unknown` is fixed vocabulary.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "mode",
+            "promptHead",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`IfStepIR`: condition summary; then/else children reference this\nnode via `parentId` + `region`.",
+          "properties": {
+            "cond": {
+              "description": "Rendered condition expression summary.",
+              "type": "string"
+            },
+            "hasElse": {
+              "description": "Whether an else region exists.",
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "if",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "cond",
+            "hasElse"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`ForeachStepIR` — the aggregate node (08 §3.2): iterations are\nfolded onto this single node, never fanned out.",
+          "properties": {
+            "as": {
+              "description": "Iteration variable name.",
+              "type": "string"
+            },
+            "items": {
+              "description": "Rendered items expression summary.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "foreach",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "items",
+            "as"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "`LetStepIR`: binding key names (small node).",
+          "properties": {
+            "bindingKeys": {
+              "description": "Bound variable names.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "let",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "bindingKeys"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "id": {
+          "description": "Node id = static `stepId`.",
+          "type": "string"
+        },
+        "parentId": {
+          "description": "Enclosing step node, when nested inside if/foreach.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeRegion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Sub-region of the parent this node belongs to."
+        },
+        "runPath": {
+          "description": "The static runPath anchor (canonical string, no iteration/attempt\nframes): the join point for run-state overlay and deep links\n(08 §3.2 — strip `[i]`/`[i:key]` from `RunOverview.steps` keys to\nland on this anchor).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "runPath"
+      ],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "HookBadge": {
+      "additionalProperties": false,
+      "description": "A handler badge (08 §3.1 hook row): hook + disposition + budget.",
+      "properties": {
+        "disposition": {
+          "description": "Disposition discriminant (`retry`/`continue`/`escalate`/`abort`/`repair`).",
+          "type": "string"
+        },
+        "errorClasses": {
+          "description": "`onError` class filter, when declared (snake_case values).",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "hook": {
+          "description": "Hook name (`onFail`/`onUnknown`/`onError`/`onResumeDrift`).",
+          "type": "string"
+        },
+        "maxTriggers": {
+          "description": "Trigger budget per instance.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repairTarget": {
+          "description": "Repair target `flowId@sha256:…`, on `repair` dispositions.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "hook",
+        "disposition",
+        "maxTriggers"
+      ],
+      "type": "object"
+    },
+    "NodeRegion": {
+      "description": "Which nested sub-region of the parent a node lives in.",
+      "oneOf": [
+        {
+          "const": "then",
+          "description": "`if.then` body.",
+          "type": "string"
+        },
+        {
+          "const": "else",
+          "description": "`if.else` body.",
+          "type": "string"
+        },
+        {
+          "const": "body",
+          "description": "`foreach.body`.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:pointlock:schema:projection:v1:flow-graph-view",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The graph projection of one `FlowIR` (spine §10.1).",
+  "properties": {
+    "edges": {
+      "description": "The closed three-class semantic edges (seq / branch / hook).",
+      "items": {
+        "$ref": "#/$defs/GraphEdge"
+      },
+      "type": "array"
+    },
+    "flowHooks": {
+      "description": "Flow-level handler badges (hooks with no host step; step-level\nhooks ride on `hook` edges anchored at their host node).",
+      "items": {
+        "$ref": "#/$defs/HookBadge"
+      },
+      "type": "array"
+    },
+    "flowId": {
+      "description": "The projected flow.",
+      "type": "string"
+    },
+    "irHash": {
+      "description": "The projected flow's content hash (full `sha256:` form).",
+      "type": "string"
+    },
+    "nodes": {
+      "description": "Flat node list; nesting is expressed by `parentId` + `region`.",
+      "items": {
+        "$ref": "#/$defs/GraphNode"
+      },
+      "type": "array"
+    },
+    "projectionVersion": {
+      "const": 1,
+      "description": "Protocol version (spine §10.3)."
+    }
+  },
+  "required": [
+    "projectionVersion",
+    "flowId",
+    "irHash",
+    "nodes",
+    "edges",
+    "flowHooks"
+  ],
+  "title": "FlowGraphView",
+  "type": "object"
+}

@@ -1,0 +1,60 @@
+{
+  "irVersion": 1,
+  "flowId": "error_classes_on_wrong_hook",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "action",
+      "stepId": "probe",
+      "effectHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "judgeHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "checkpoint": true,
+      "effect": "readonly",
+      "idempotent": false,
+      "binding": {
+        "attempts": [
+          {
+            "channel": "uiTree",
+            "actionName": "findElement",
+            "args": {
+              "selector": {
+                "lit": {
+                  "identifier": "root"
+                }
+              }
+            },
+            "requiresFeature": "device.semanticActions.v1",
+            "acceptExecutionModes": [
+              "nativeSemantic"
+            ],
+            "protection": "standard"
+          }
+        ]
+      },
+      "assertions": []
+    }
+  ],
+  "handlers": [
+    {
+      "hook": "onFail",
+      "errorClasses": [
+        "action_failed_final"
+      ],
+      "action": {
+        "kind": "abort"
+      },
+      "maxTriggers": 1
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

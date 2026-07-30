@@ -1,0 +1,26 @@
+<svg width="190" height="190" viewBox="0 0 190 190" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pointlock logo">
+  <title>Pointlock</title>
+  <desc>A lock bolt driven into a keeper and seated — the route is proven locked before anything moves.</desc>
+  <defs>
+    <linearGradient id="pl-mark" x1="26" y1="26" x2="164" y2="164" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00CCFF"/>
+      <stop offset="0.52" stop-color="#0D4DE5"/>
+      <stop offset="1" stop-color="#121CBF"/>
+    </linearGradient>
+    <!-- The seam is the bolt's own stroke widened by twice the gap, so its edges
+         follow the bolt exactly. Two rules keep it clean: butt caps only (a round
+         cap landing inside the keeper carves a curved bite that reads as a dent),
+         and it must stop inside the hole so the far wall stays unbroken — that
+         unbroken wall is what makes the bolt read as seated rather than through. -->
+    <!-- maskUnits is mandatory here. Left at its default of objectBoundingBox the
+         mask region is only the circle's GEOMETRY box widened by 10% — which is
+         narrower than the same circle once stroked, so the ring loses 3px to a
+         flat chamfer on every side. -->
+    <mask id="pl-seam" maskUnits="userSpaceOnUse" x="0" y="0" width="190" height="190">
+      <rect width="190" height="190" fill="#fff"/>
+      <path d="M-10 95 H132" stroke="#000" stroke-width="44" fill="none"/>
+    </mask>
+  </defs>
+  <circle cx="108" cy="95" r="50" fill="none" stroke="url(#pl-mark)" stroke-width="26" mask="url(#pl-seam)"/>
+  <path d="M30 95 H114" fill="none" stroke="url(#pl-mark)" stroke-width="26" stroke-linecap="round"/>
+</svg>

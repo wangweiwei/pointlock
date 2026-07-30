@@ -1,0 +1,82 @@
+{
+  "irVersion": 1,
+  "flowId": "step_level_handlers",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "action",
+      "stepId": "probe",
+      "effectHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "judgeHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "checkpoint": true,
+      "effect": "readonly",
+      "idempotent": false,
+      "binding": {
+        "attempts": [
+          {
+            "channel": "uiTree",
+            "actionName": "findElement",
+            "args": {
+              "selector": {
+                "lit": {
+                  "identifier": "root"
+                }
+              }
+            },
+            "requiresFeature": "device.semanticActions.v1",
+            "acceptExecutionModes": [
+              "nativeSemantic"
+            ],
+            "protection": "standard"
+          }
+        ]
+      },
+      "assertions": [],
+      "timeoutMs": 15000,
+      "retry": {
+        "maxAttempts": 3,
+        "backoffMs": 100,
+        "retryOn": [
+          "action_failed_retryable"
+        ]
+      },
+      "handlers": [
+        {
+          "hook": "onUnknown",
+          "action": {
+            "kind": "escalate",
+            "human": {
+              "kind": "human",
+              "stepId": "probe:onUnknown:escalate",
+              "effectHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "judgeHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "checkpoint": true,
+              "mode": "judge",
+              "prompt": "Machine could not judge this step; decide from the evidence.",
+              "presents": [],
+              "decisions": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "timeoutMs": 3600000,
+              "onTimeout": "unknown"
+            }
+          },
+          "maxTriggers": 1
+        }
+      ]
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

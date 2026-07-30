@@ -1,0 +1,58 @@
+# M2 acceptance demo (08 §6.3): the checkout flow with a human gate —
+# foreach adds three items to the cart, a human confirms shipment, the
+# final step places the order. Fake registration (echo semantics): the
+# assertions judge real step outputs.
+flow: m2_checkout
+provider: devicerail
+params:
+  items:
+    schema: { type: array, minItems: 1 }
+    required: false
+    default: [book, pen, mug]
+steps:
+  # foreach: one add-to-cart per item, per-iteration RunPath and
+  # `iter.<as>` scoping (acceptance 5).
+  - id: add_items
+    foreach:
+      in: ${{ params.items }}
+      as: item
+      steps:
+        - id: add_one
+          invoke:
+            action: setElementValue
+            args:
+              element: add-to-cart
+              value: ${{ iter.item }}
+          effect: mutating
+          expect_schema:
+            type: object
+            properties:
+              value: { type: string }
+          expect:
+            - assert_id: added_this_item
+              expr: ${{ eq(steps.add_one.output.value, iter.item) }}
+
+  # The human gate (acceptance 1): confirm shipment. First decision maps
+  # to pass; the runner suspends awaitingHuman until the ledger carries
+  # the response.
+  - id: confirm_shipment
+    human:
+      mode: confirm
+      prompt: "3 件商品已入购物车，确认发货？"
+      decisions: [ship, cancel]
+      timeout_ms: 86400000
+
+  # Place the order after the human said ship.
+  - id: place_order
+    invoke:
+      action: tapElement
+      args:
+        element: place-order
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        element: { type: string }
+    expect:
+      - assert_id: order_placed
+        expr: ${{ eq(steps.place_order.output.element, "place-order") }}

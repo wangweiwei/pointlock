@@ -1,0 +1,40 @@
+# M3a-W4 vision acceptance demo (08 §6.4): the wifi flow's read-back step
+# carries both an expr assertion and a `visual` assertion. The visual
+# predicate rides the `vision` verify channel — legal only as the chain
+# tail, verify-role only (principle 7) — and is judged by the configured
+# VisionVerifier (`pointlock run --vision anthropic`) against the localized
+# screenshot the provider attached to the observation.
+#
+# Without `--vision` the tail degrades honestly: the assertion settles
+# `unknown` ("vision verifier not configured") and the flow verdict is
+# `unknown`, exit 2 — never a guessed pass (principle 4).
+flow: vision_demo
+provider: devicerail
+params:
+  ssid:
+    schema: { type: string, minLength: 1 }
+    required: true
+steps:
+  - id: set_ssid
+    invoke:
+      action: setElementValue
+      args:
+        element: ssid_field
+        value: ${{ params.ssid }}
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        value: { type: string }
+
+  - id: read_back
+    invoke:
+      action: findElement
+      args:
+        element: ssid_field
+    effect: readonly
+    expect:
+      - assert_id: ssid_was_typed
+        expr: ${{ eq(steps.set_ssid.output.value, params.ssid) }}
+      - assert_id: field_visibly_filled
+        visual: "The SSID text field visibly contains the requested network name"

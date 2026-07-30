@@ -1,0 +1,28 @@
+[package]
+name = "pointlock-vision"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Pointlock's Anthropic-backed visual verifier (downgrade-only, evidence-backed)."
+keywords = ["pointlock", "vision", "anthropic", "verification", "automation"]
+categories = ["development-tools"]
+
+[dependencies]
+pointlock-ir = { workspace = true }
+async-trait = { workspace = true }
+# The Anthropic-backed verifier speaks raw HTTP to the Messages API
+# (no official Rust SDK exists); rustls keeps the build self-contained.
+base64 = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# The verifier tests run against a local canned-response HTTP server
+# (base_url override) — no API key, no network.
+tiny_http = { workspace = true }
+tokio = { workspace = true }

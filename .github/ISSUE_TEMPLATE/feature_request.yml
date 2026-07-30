@@ -1,0 +1,50 @@
+name: 💡 Feature request
+description: Propose a new capability or improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Note that changes to the Typed IR, the Provider SPI,
+        the event vocabulary, or the projection protocol are **design-governed** —
+        please describe the motivation so it can be weighed against the
+        [design documents](../blob/main/docs/README.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why does the current design fall short?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like Pointlock to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - authoring / YAML surface
+        - Typed IR
+        - compiler
+        - runner / execution semantics
+        - store / checkpoint / resume
+        - provider / SPI
+        - human / supervision
+        - vision
+        - projection / UI
+        - cli / report
+        - docs
+        - other
+    validations:
+      required: true

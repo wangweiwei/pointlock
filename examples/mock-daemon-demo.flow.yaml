@@ -1,0 +1,70 @@
+# M1 acceptance demo (08 §6.2): a 3-step flow over the real DeviceRail
+# provider. The daemon's built-in mock driver (`mock-1`) executes its
+# driver-native actions `tap{x,y}` / `scroll{deltaX,deltaY}` /
+# `inputText{text}`, and the expr assertions judge the driver's real
+# outputs (`steps.<id>.output`) — capability binding is real: `pointlock
+# compile --lockfile` refuses any action the daemon did not freeze into
+# the lockfile (RF4004).
+#
+# Assembly: `pointlock lock/run --provider devicerail --daemon-cmd <path>`
+# spawn the daemon with the smoke defaults (fresh evidence tempdir,
+# DEVICERAIL_ANDROID=off). Pass
+# `--daemon-env DEVICERAIL_SCREENSHOT_POLICY=omit` on both lock and run:
+# the DeviceRail control plane has no asset byte channel (documented
+# provider gap — `fetchEvidence` is typed-unsupported), so with captured
+# screenshots the runner's evidence localization would fail the run.
+flow: mock_daemon_demo
+provider: devicerail
+params:
+  # Declared as a param so the length assertion below reads its real length
+  # instead of hardcoding a count that silently rots whenever the text moves.
+  text:
+    schema: { type: string, minLength: 1 }
+    required: false
+    default: pointlock
+steps:
+  # Driver-native coordinate tap: the mock accepts non-negative device
+  # coordinates and echoes them (plus `accepted: true`) in its output.
+  - id: tap_center
+    invoke:
+      action: tap
+      args: { x: 120, y: 240 }
+    effect: mutating
+    idempotent: true
+    expect_schema:
+      type: object
+      properties:
+        accepted: { type: boolean }
+    expect:
+      - assert_id: tap_accepted
+        expr: ${{ eq(steps.tap_center.output.accepted, true) }}
+
+  # Scroll by a device-coordinate delta; judged downstream (R4: this step
+  # itself finishes unverified).
+  - id: scroll_feed
+    invoke:
+      action: scroll
+      args: { deltaX: 0, deltaY: 240 }
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        deltaY: { type: number }
+
+  # Type text; the mock reports the typed character count. The assertions
+  # reference both an upstream step's output and this step's own.
+  - id: type_text
+    invoke:
+      action: inputText
+      args:
+        text: ${{ params.text }}
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        characters: { type: number }
+    expect:
+      - assert_id: scroll_delta_echoed
+        expr: ${{ eq(steps.scroll_feed.output.deltaY, 240) }}
+      - assert_id: text_length_counted
+        expr: ${{ eq(steps.type_text.output.characters, len(params.text)) }}

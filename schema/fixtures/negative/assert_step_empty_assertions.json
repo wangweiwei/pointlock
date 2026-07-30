@@ -1,0 +1,27 @@
+{
+  "irVersion": 1,
+  "flowId": "assert_step_empty_assertions",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "assert",
+      "stepId": "check",
+      "effectHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "judgeHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "checkpoint": true,
+      "observe": "fresh",
+      "assertions": []
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

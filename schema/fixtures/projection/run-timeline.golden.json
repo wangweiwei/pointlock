@@ -1,0 +1,214 @@
+{
+  "projectionVersion": 1,
+  "runId": "run-golden",
+  "filter": "all",
+  "page": 1,
+  "pageSize": 50,
+  "revision": 14,
+  "total": 14,
+  "entries": [
+    {
+      "seq": 1,
+      "atMs": 1010,
+      "runPath": "demo@aaaaaaaa",
+      "detail": {
+        "type": "runStarted",
+        "supervisePolicy": null
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 2,
+      "atMs": 1020,
+      "runPath": "demo@aaaaaaaa/step_a",
+      "detail": {
+        "type": "stepEntered",
+        "stepId": "step_a"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 3,
+      "atMs": 1030,
+      "runPath": "demo@aaaaaaaa/step_a#1:act",
+      "detail": {
+        "type": "actionIntent",
+        "callId": "call-1",
+        "args": {
+          "value": {
+            "element": "ssid_field",
+            "value": "lab"
+          },
+          "truncated": false
+        }
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 4,
+      "atMs": 1040,
+      "runPath": "demo@aaaaaaaa/step_a#1:act",
+      "detail": {
+        "type": "actionSettled",
+        "callId": "call-1",
+        "outcome": "succeeded"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 5,
+      "atMs": 1050,
+      "runPath": "demo@aaaaaaaa/step_a",
+      "detail": {
+        "type": "observationRecorded",
+        "observationId": "obs-1",
+        "capturedAtMs": 1030,
+        "uiSnapshotOmission": "driverUnsupported"
+      },
+      "evidence": [
+        {
+          "id": "asset-e",
+          "mediaType": "image/png",
+          "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      ],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 6,
+      "atMs": 1060,
+      "runPath": "demo@aaaaaaaa/step_a",
+      "detail": {
+        "type": "assertionEvaluated",
+        "assertId": "ssid_was_typed",
+        "result": "pass",
+        "channel": "dom",
+        "reason": "dom text equals the requested ssid"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 7,
+      "atMs": 1070,
+      "runPath": "demo@aaaaaaaa/step_a",
+      "detail": {
+        "type": "verdictRecorded",
+        "status": "pass",
+        "degraded": false,
+        "summary": "all assertions pass on the dom channel"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 8,
+      "atMs": 1080,
+      "runPath": "demo@aaaaaaaa/step_a",
+      "detail": {
+        "type": "stepExited",
+        "state": "judged"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 9,
+      "atMs": 1090,
+      "runPath": "demo@aaaaaaaa/step_b",
+      "detail": {
+        "type": "stepEntered",
+        "stepId": "step_b"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 10,
+      "atMs": 1100,
+      "runPath": "demo@aaaaaaaa/step_b",
+      "detail": {
+        "type": "humanRequested",
+        "requestId": "req-1",
+        "purpose": "step",
+        "mode": "judge",
+        "prompt": "Does the panel show the connected banner?"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 11,
+      "atMs": 1110,
+      "runPath": "demo@aaaaaaaa/step_b",
+      "detail": {
+        "type": "humanResponded",
+        "requestId": "req-1",
+        "purpose": "step",
+        "actor": "cli:tester@host",
+        "response": {
+          "value": {
+            "status": "pass"
+          },
+          "truncated": false
+        }
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 12,
+      "atMs": 1120,
+      "runPath": "demo@aaaaaaaa/step_b",
+      "detail": {
+        "type": "verdictRecorded",
+        "status": "pass",
+        "degraded": false,
+        "summary": "human judged pass"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 13,
+      "atMs": 1130,
+      "runPath": "demo@aaaaaaaa/step_b",
+      "detail": {
+        "type": "stepExited",
+        "state": "judged"
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    },
+    {
+      "seq": 14,
+      "atMs": 1140,
+      "runPath": "demo@aaaaaaaa",
+      "detail": {
+        "type": "runFinished",
+        "status": "pass",
+        "degraded": false
+      },
+      "evidence": [],
+      "evidenceOmitted": 0,
+      "truncated": false
+    }
+  ]
+}

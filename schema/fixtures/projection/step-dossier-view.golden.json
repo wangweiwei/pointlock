@@ -1,0 +1,109 @@
+{
+  "projectionVersion": 1,
+  "runId": "run-golden",
+  "runPath": "demo@aaaaaaaa/step_a",
+  "runPathFrames": [
+    {
+      "kind": "flow",
+      "flowId": "demo",
+      "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "kind": "step",
+      "stepId": "step_a"
+    }
+  ],
+  "stepId": "step_a",
+  "effectHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "judgeHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "resolvedInputs": {
+    "element": "ssid_field",
+    "value": "lab"
+  },
+  "preflight": [],
+  "attempts": [
+    {
+      "n": 1,
+      "callId": "call-1",
+      "outcome": "succeeded",
+      "argsSnapshot": {
+        "element": "ssid_field",
+        "value": "lab"
+      },
+      "startedAtMs": 1020,
+      "finishedAtMs": 1025,
+      "intentSeq": 3,
+      "settledSeq": 4
+    }
+  ],
+  "output": {
+    "value": "lab"
+  },
+  "observations": [
+    {
+      "observationId": "obs-1",
+      "capturedAtMs": 1030,
+      "viewport": {
+        "width": 1080,
+        "height": 2400,
+        "scaleFactor": 2.0
+      },
+      "screenshot": {
+        "asset": {
+          "id": "asset-e",
+          "mediaType": "image/png",
+          "uri": "devicerail://assets/asset-e",
+          "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "localPath": "evidence/sha256/ee/ee/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "uiSnapshotOmission": "driverUnsupported"
+    }
+  ],
+  "assertionOutcomes": [
+    {
+      "assertId": "ssid_was_typed",
+      "result": "pass",
+      "channel": "dom",
+      "reason": "dom text equals the requested ssid"
+    }
+  ],
+  "verdict": {
+    "status": "pass",
+    "degraded": false
+  },
+  "verdictHistory": [
+    {
+      "seq": 7,
+      "atMs": 1070,
+      "verdict": {
+        "status": "pass",
+        "degraded": false,
+        "summary": "all assertions pass on the dom channel",
+        "evidence": []
+      }
+    }
+  ],
+  "handlerTriggers": [],
+  "evidence": [
+    {
+      "asset": {
+        "id": "asset-e",
+        "mediaType": "image/png",
+        "uri": "devicerail://assets/asset-e",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "localPath": "evidence/sha256/ee/ee/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source": "observation:obs-1/screenshot"
+    }
+  ],
+  "frame": {
+    "inputsSnapshot": {
+      "ssid": "lab"
+    },
+    "vars": {}
+  },
+  "state": "judged"
+}

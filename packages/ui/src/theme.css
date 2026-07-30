@@ -1,0 +1,185 @@
+/* The closed visual vocabulary (08 §3.6): state on the BORDER channel,
+ * verdict on the FILL channel — never mixed. unknown is amber, never
+ * red: "didn't see clearly" is not failure. */
+
+:root {
+  --pass: #2e9e5b;
+  --pass-bg: #e4f5ea;
+  --fail: #d33d3d;
+  --fail-bg: #fbe5e5;
+  --unknown: #d9930d;
+  --unknown-bg: #fdf3dd;
+  --active: #2f6fd6;
+  --human: #7d4fc9;
+  --muted: #8a8f98;
+  --ink: #1f2328;
+  --line: #d6d9de;
+  --panel: #ffffff;
+  --page: #f4f6f8;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+}
+a { color: var(--active); text-decoration: none; }
+code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.topbar {
+  display: flex; gap: 16px; align-items: center;
+  padding: 8px 16px; background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .brand { font-weight: 700; }
+.topbar .spacer { flex: 1; }
+.badge-dot {
+  display: inline-block; min-width: 8px; height: 8px; border-radius: 50%;
+  background: var(--human);
+}
+
+.page-pad { padding: 16px; }
+.panel {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 12px;
+}
+table.list { width: 100%; border-collapse: collapse; }
+table.list th, table.list td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
+}
+table.list th { color: var(--muted); font-weight: 600; }
+
+.chip {
+  display: inline-block; padding: 1px 7px; border-radius: 10px;
+  border: 1px solid var(--line); background: #fff; font-size: 11px;
+  margin-right: 4px;
+}
+.chip.verdict-pass { background: var(--pass-bg); border-color: var(--pass); color: var(--pass); }
+.chip.verdict-fail { background: var(--fail-bg); border-color: var(--fail); color: var(--fail); }
+.chip.verdict-unknown { background: var(--unknown-bg); border-color: var(--unknown); color: var(--unknown); }
+.chip.degraded {
+  background: repeating-linear-gradient(45deg, var(--pass-bg), var(--pass-bg) 4px, var(--unknown-bg) 4px, var(--unknown-bg) 8px);
+}
+.chip.vision { border-style: dashed; }
+/* 08 §3.4 act-chain runtime marks: solid = dispatched+succeeded,
+   struck = dispatched+crossed, dimmed = untried. */
+.chip.mark-ok { border-width: 2px; border-color: var(--pass); }
+.chip.mark-crossed { text-decoration: line-through; opacity: 0.8; }
+.chip.mark-untried { opacity: 0.45; }
+.flow-hooks { display: flex; gap: 4px; flex-wrap: wrap; }
+/* 08 §3.3: an expanded call is a group container — header on top,
+   children laid out inside; the boundary box names the callee. */
+.rf-node.call-expanded {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  align-items: flex-start;
+}
+.expand-btn {
+  margin-left: 6px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 5px;
+  cursor: pointer;
+}
+
+/* ── run page: the three-pane layout (08 §2.4) ── */
+.run-grid {
+  display: grid; grid-template-columns: 1.2fr 0.9fr 1fr;
+  gap: 12px; height: calc(100vh - 96px); padding: 12px;
+}
+.run-grid > .panel { overflow: auto; }
+.graph-pane { padding: 0; overflow: hidden; }
+
+/* ── graph nodes (§3.6 closed table) ── */
+.rf-node {
+  width: 216px; min-height: 60px; padding: 8px 10px;
+  background: var(--panel);
+  border: 2px solid var(--line); border-radius: 8px;
+  font-size: 12px;
+}
+.rf-node .kind { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.rf-node .title { font-weight: 650; margin: 1px 0 3px; }
+.rf-node.human { border-radius: 18px; border-color: var(--human); }
+.rf-node.state-active { border-color: var(--active); animation: pulse 1.6s ease-in-out infinite; }
+.rf-node.state-awaitingHuman { border-color: var(--human); animation: pulse 1.6s ease-in-out infinite; }
+.rf-node.state-suspended { border-color: #6b7a8f; }
+.rf-node.state-drifted { border-color: var(--unknown); }
+.rf-node.state-skipped, .rf-node.state-blocked { opacity: 0.55; }
+.rf-node.state-aborted { border-color: #444; opacity: 0.7; }
+.rf-node.fill-pass { background: var(--pass-bg); }
+.rf-node.fill-fail { background: var(--fail-bg); }
+.rf-node.fill-unknown { background: var(--unknown-bg); }
+.rf-node.fill-unverified { background: #eef4ee; border-style: dashed; }
+.rf-node.fill-pass.degraded {
+  background: repeating-linear-gradient(45deg, var(--pass-bg), var(--pass-bg) 6px, var(--unknown-bg) 6px, var(--unknown-bg) 10px);
+}
+.rf-node.selected { box-shadow: 0 0 0 3px rgba(47, 111, 214, 0.35); }
+.rf-node .hooks { margin-top: 3px; }
+.rf-node .hook-badge {
+  display: inline-block; border: 1px dashed var(--muted); border-radius: 4px;
+  font-size: 10px; padding: 0 4px; margin-right: 3px; color: var(--muted);
+}
+.rf-node .chain { margin-top: 2px; }
+.rf-node .chain .chip { font-size: 10px; padding: 0 5px; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(47, 111, 214, 0.18); } }
+
+/* ── timeline ── */
+.tl-filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.tl-filters button {
+  border: 1px solid var(--line); background: #fff; border-radius: 12px;
+  padding: 2px 10px; cursor: pointer; font-size: 12px;
+}
+.tl-filters button.on { background: var(--active); border-color: var(--active); color: #fff; }
+.tl-entry {
+  padding: 5px 6px; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.tl-entry:hover { background: #f0f4fa; }
+.tl-entry.selected { background: #e7effc; }
+.tl-entry .seq { color: var(--muted); margin-right: 6px; }
+.tl-entry .etype { font-weight: 600; margin-right: 6px; }
+.tl-entry.divider { background: #eef1f5; font-style: italic; cursor: default; }
+.tl-more { color: var(--unknown); padding: 6px; }
+
+/* ── inspector ── */
+.insp h4 {
+  margin: 12px 0 4px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted);
+}
+.insp pre {
+  background: #f6f8fa; border: 1px solid var(--line); border-radius: 4px;
+  padding: 6px; overflow: auto; max-height: 220px; margin: 4px 0;
+}
+.insp .path { user-select: all; }
+.insp .superseded { opacity: 0.6; }
+.gallery { display: flex; gap: 8px; flex-wrap: wrap; }
+.gallery img {
+  max-width: 128px; max-height: 96px; border: 1px solid var(--line);
+  border-radius: 4px; background: #fff;
+}
+
+/* ── repair closure (08 §2.7) ── */
+.chip.align-judge { background: #e3edfb; border-color: var(--active); color: var(--active); }
+.chip.align-effect { background: #fdeeda; border-color: #d9700d; color: #d9700d; }
+.repair-form { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.repair-form input {
+  border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.diff { font-size: 11px; }
+.diff .diff-add { background: var(--pass-bg); }
+.diff .diff-del { background: var(--fail-bg); }
+
+/* ── inbox ── */
+.inbox-entry { border-left: 3px solid var(--human); margin-bottom: 10px; }
+.inbox-entry .respond {
+  background: #f6f8fa; border: 1px dashed var(--line); border-radius: 4px;
+  padding: 6px; user-select: all;
+}
+.banner {
+  padding: 6px 12px; border-radius: 6px; margin-bottom: 8px;
+  background: var(--unknown-bg); border: 1px solid var(--unknown);
+}
+.banner.human { background: #f1eafb; border-color: var(--human); }

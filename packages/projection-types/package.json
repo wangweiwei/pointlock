@@ -1,0 +1,37 @@
+{
+  "name": "@pointlock/projection-types",
+  "version": "0.1.1",
+  "description": "Type-only package generated from the pointlock-store projection schemas (spine §10.2, R14). Do not edit src/ by hand — run `pnpm generate` after re-emitting the Rust-side schemas.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "The Pointlock Authors",
+  "homepage": "https://github.com/wangweiwei/pointlock#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wangweiwei/pointlock.git",
+    "directory": "packages/projection-types"
+  },
+  "bugs": {
+    "url": "https://github.com/wangweiwei/pointlock/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "check": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.0",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,0 +1,387 @@
+{
+  "$defs": {
+    "FlowId": {
+      "maxLength": 256,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+      "type": "string"
+    },
+    "HandlerHook": {
+      "description": "Handler hook points (spine A.4). Handlers never appear in normal control\nflow; they fire on specific state-machine transitions.",
+      "oneOf": [
+        {
+          "const": "onFail",
+          "description": "Fires when the step verdict folds to fail.",
+          "type": "string"
+        },
+        {
+          "const": "onUnknown",
+          "description": "Fires when the step verdict folds to unknown.",
+          "type": "string"
+        },
+        {
+          "const": "onError",
+          "description": "Fires on an [`ErrorClass`] (optionally filtered via `errorClasses`).",
+          "type": "string"
+        },
+        {
+          "const": "onResumeDrift",
+          "description": "Fires when resume preflight probes detect world drift.",
+          "type": "string"
+        }
+      ]
+    },
+    "Hash": {
+      "description": "Content hash, canonical form 'sha256:<64 lowercase hex>'.",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "JsonSchemaDocument": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "description": "An embedded JSON Schema (Draft 2020-12) document. Deliberately open (exemption class 1): its internal grammar is governed by the JSON Schema meta-schema, not by this schema."
+    },
+    "PathFrame": {
+      "description": "One frame of a [`RunPath`] (8 kinds, closed; spine §9), internally tagged\nwith `kind`.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A flow root. Paths always carry the flow's `irHash` (hard rule 1).",
+          "properties": {
+            "flowId": {
+              "$ref": "#/$defs/FlowId",
+              "description": "The flow's id."
+            },
+            "irHash": {
+              "$ref": "#/$defs/Hash",
+              "description": "The flow's content hash."
+            },
+            "kind": {
+              "const": "flow",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "flowId",
+            "irHash"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A step within the current flow body.",
+          "properties": {
+            "kind": {
+              "const": "step",
+              "type": "string"
+            },
+            "stepId": {
+              "$ref": "#/$defs/StepId",
+              "description": "The step's id."
+            }
+          },
+          "required": [
+            "kind",
+            "stepId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A subflow call frame.",
+          "properties": {
+            "calleeFlowId": {
+              "$ref": "#/$defs/FlowId",
+              "description": "The callee's flow id."
+            },
+            "calleeIrHash": {
+              "$ref": "#/$defs/Hash",
+              "description": "The callee's content hash."
+            },
+            "kind": {
+              "const": "call",
+              "type": "string"
+            },
+            "stepId": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StepId"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The call step's id. Absent exactly when this call frame is a\nhandler-repair launched flow (directly under a `hook` frame,\nno host call step — spine §9)."
+            }
+          },
+          "required": [
+            "kind",
+            "calleeFlowId",
+            "calleeIrHash"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A foreach iteration.",
+          "properties": {
+            "index": {
+              "description": "Zero-based iteration index.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "key": {
+              "description": "Optional stable item key.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "iteration",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "index"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A handler execution (audit trace of spine R10).",
+          "properties": {
+            "hook": {
+              "$ref": "#/$defs/HandlerHook",
+              "description": "The hook that fired."
+            },
+            "kind": {
+              "const": "hook",
+              "type": "string"
+            },
+            "trigger": {
+              "description": "One-based trigger count for this hook.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "hook",
+            "trigger"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An act-chain attempt.",
+          "properties": {
+            "kind": {
+              "const": "attempt",
+              "type": "string"
+            },
+            "n": {
+              "description": "One-based attempt number.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "n"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A step pipeline phase.",
+          "properties": {
+            "kind": {
+              "const": "phase",
+              "type": "string"
+            },
+            "phase": {
+              "$ref": "#/$defs/Phase",
+              "description": "The phase."
+            }
+          },
+          "required": [
+            "kind",
+            "phase"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An assertion within the assert phase.",
+          "properties": {
+            "assertId": {
+              "description": "The assertion's id.",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "assertion",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "assertId"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Phase": {
+      "description": "Step pipeline phase (spine A.4, used by `PathFrame::Phase`).",
+      "oneOf": [
+        {
+          "const": "preflight",
+          "description": "Pre-entry world probe.",
+          "type": "string"
+        },
+        {
+          "const": "act",
+          "description": "Action execution.",
+          "type": "string"
+        },
+        {
+          "const": "observe",
+          "description": "Observation capture.",
+          "type": "string"
+        },
+        {
+          "const": "assert",
+          "description": "Assertion evaluation.",
+          "type": "string"
+        }
+      ]
+    },
+    "StepId": {
+      "description": "Author-written ids use the first segment only ([A-Za-z_][A-Za-z0-9_-]*). ':'-separated segments are reserved for compiler-synthesized ids (e.g. handler-embedded human steps 'host:onFail:escalate'); synthesized ids never appear in ref paths.",
+      "maxLength": 256,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(:[A-Za-z_][A-Za-z0-9_-]*)*$",
+      "type": "string"
+    }
+  },
+  "$id": "urn:pointlock:schema:projection:v1:human-inbox-entry",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One pending human request (step or supervision — `purpose` is the\ndiscriminator, spine A.4).",
+  "properties": {
+    "deadlineAtMs": {
+      "description": "Absolute response deadline (ms); absent for supervision gates —\nthey never time out (spine §6.9). After the deadline the runner\nsettles the request to `unknown` (fixed vocabulary).",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "decisions": {
+      "description": "Confirm labels, when the mode declares them.",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "flowId": {
+      "description": "The run's flow.",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Interaction mode (`purpose = step` only).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outputSchema": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JsonSchemaDocument"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The provideInput contract, when the mode declares one."
+    },
+    "presents": {
+      "description": "Materialized exhibits (values render directly; evidence refs go\nthrough the gallery route — 08 §2.6)."
+    },
+    "projectionVersion": {
+      "const": 1,
+      "description": "Protocol version (spine §10.3)."
+    },
+    "prompt": {
+      "description": "The prompt.",
+      "type": "string"
+    },
+    "purpose": {
+      "description": "`step` vs `supervision` (R13).",
+      "type": "string"
+    },
+    "requestId": {
+      "description": "The pairing id a response must carry.",
+      "type": "string"
+    },
+    "requestedAtMs": {
+      "description": "When the request was recorded.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "requestedSeq": {
+      "description": "Ledger seq of the request.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "description": "The run awaiting the response.",
+      "type": "string"
+    },
+    "runPath": {
+      "description": "Canonical string of the awaiting/gated step's path.",
+      "type": "string"
+    },
+    "runPathFrames": {
+      "description": "The structured path (frames are the authority — spine §9).",
+      "items": {
+        "$ref": "#/$defs/PathFrame"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "projectionVersion",
+    "runId",
+    "flowId",
+    "requestId",
+    "purpose",
+    "prompt",
+    "presents",
+    "requestedAtMs",
+    "requestedSeq",
+    "runPath",
+    "runPathFrames"
+  ],
+  "title": "HumanInboxEntry",
+  "type": "object"
+}

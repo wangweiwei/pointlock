@@ -1,0 +1,444 @@
+{
+  "$defs": {
+    "ActChainMark": {
+      "additionalProperties": false,
+      "description": "One settled dispatch of the latest acting pass (08 §3.4). `mark` is\nthe closed chip vocabulary minus `untried` (absence = untried):\n`succeeded` | `crossed`. `executionMode`/`fallbackReason` ride\nverbatim so the renderer (which holds the IR) can apply the\n`acceptExecutionModes` whitelist check.",
+      "properties": {
+        "chainIndex": {
+          "description": "1-based `binding.attempts` position.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "executionMode": {
+          "description": "Daemon-reported execution mode, when any.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fallbackReason": {
+          "description": "Daemon-side degradation reason, when any.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mark": {
+          "description": "`succeeded` | `crossed`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chainIndex",
+        "mark"
+      ],
+      "type": "object"
+    },
+    "AlignmentSummary": {
+      "additionalProperties": false,
+      "description": "Per-class alignment counts of the latest resume (08 §2.4 top bar).",
+      "properties": {
+        "effectDirty": {
+          "description": "Step + downstream invalidated, re-runs.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "judgeDirty": {
+          "description": "Offline re-judgement, no device redispatch.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "new": {
+          "description": "Newly introduced steps.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "orphaned": {
+          "description": "Steps whose history lost its IR node.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reusable": {
+          "description": "History kept as-is.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reusable",
+        "judgeDirty",
+        "effectDirty",
+        "new",
+        "orphaned"
+      ],
+      "type": "object"
+    },
+    "AttestationSnapshot": {
+      "additionalProperties": false,
+      "description": "The two attestation facts 07 §2.2 pins into the summary (deliberately\nnot the full `CapabilityAttestation`).",
+      "properties": {
+        "attestedAt": {
+          "description": "Attestation timestamp, verbatim.",
+          "type": "string"
+        },
+        "lockfileDigest": {
+          "$ref": "#/$defs/Hash",
+          "description": "Digest of the attested lockfile."
+        }
+      },
+      "required": [
+        "lockfileDigest",
+        "attestedAt"
+      ],
+      "type": "object"
+    },
+    "EventCursor": {
+      "additionalProperties": false,
+      "description": "Event-log cursor of the bound provider session (spine §6.6; advanced\nack-after-persist, never across session generations).",
+      "properties": {
+        "lastSequence": {
+          "description": "Last sequence durably consumed from that session.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sessionId": {
+          "description": "The provider session that issued the recorded events.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "lastSequence"
+      ],
+      "type": "object"
+    },
+    "Hash": {
+      "description": "Content hash, canonical form 'sha256:<64 lowercase hex>'.",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "ProviderStateSummary": {
+      "additionalProperties": false,
+      "description": "The provider-side session profile captured at a failure or suspension\ninstant (07 §2.2, incorporated 2026-07-18): pure forensic material for\nthe dossier/overview — resume reconcile, the fold's binding provenance\nand alignment never consume it. Rides `stepExited` (fail/unknown\nverdict in force at exit) and `runSuspended` as an additive optional\npayload field; absent on ledgers recorded before incorporation.",
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/AttestationSnapshot",
+          "description": "The attested capability baseline at capture."
+        },
+        "deviceId": {
+          "description": "The bound device.",
+          "type": "string"
+        },
+        "eventCursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EventCursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The capture-instant cursor (`currentCursor()` RPC). Absent when\nthe call failed — never a stale bind-time value (principle 4)."
+        },
+        "health": {
+          "$ref": "#/$defs/SessionHealthSnapshot",
+          "description": "`ProviderSession::health()` at capture; a failed call records\n`{ ok: false, degraded: \"<errorClass>\" }`."
+        },
+        "platform": {
+          "description": "`lockfile.device.platform`; absent when the assembly layer did\nnot supply it (the SPI attestation does not carry it).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sessionLineage": {
+          "description": "Known session generations, best-effort: the checkpoint-known\nlineage plus the live session observed at capture.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessionLineage",
+        "attestation",
+        "health",
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "SessionHealthSnapshot": {
+      "additionalProperties": false,
+      "description": "Wire twin of the provider-kit `SessionHealth` (defined here because\nprovider-kit depends on ir, not vice versa).",
+      "properties": {
+        "degraded": {
+          "description": "Degradation note (an error class when the health call failed).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ok": {
+          "description": "Whether the session answered healthy.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "StepState": {
+      "description": "Step lifecycle state (spine §6.2/A.4, closed 14-value set).\n\n`awaitingHuman` doubles as the supervision-gate wait state (R13):\nthe exit path is discriminated by the pending request's `purpose`.",
+      "oneOf": [
+        {
+          "const": "pending",
+          "description": "Not yet reached.",
+          "type": "string"
+        },
+        {
+          "const": "ready",
+          "description": "Inputs resolved and snapshotted; ready to act.",
+          "type": "string"
+        },
+        {
+          "const": "probing",
+          "description": "Preflight probes running.",
+          "type": "string"
+        },
+        {
+          "const": "acting",
+          "description": "Action dispatched (entered only after the actionIntent WAL fsync).",
+          "type": "string"
+        },
+        {
+          "const": "settling",
+          "description": "Awaiting the four-way terminal outcome.",
+          "type": "string"
+        },
+        {
+          "const": "observing",
+          "description": "Capturing/localizing observations and evidence.",
+          "type": "string"
+        },
+        {
+          "const": "asserting",
+          "description": "Pure assertion evaluation.",
+          "type": "string"
+        },
+        {
+          "const": "judged",
+          "description": "Terminal: verdict folded (or no-verdict for unasserted mutations).",
+          "type": "string"
+        },
+        {
+          "const": "skipped",
+          "description": "Terminal: an `if` branch not taken.",
+          "type": "string"
+        },
+        {
+          "const": "blocked",
+          "description": "Terminal: upstream failure with halt policy.",
+          "type": "string"
+        },
+        {
+          "const": "drifted",
+          "description": "Resume probe failed; awaiting onResumeDrift disposition.",
+          "type": "string"
+        },
+        {
+          "const": "awaitingHuman",
+          "description": "Suspended awaiting a human response (step or supervision purpose).",
+          "type": "string"
+        },
+        {
+          "const": "suspended",
+          "description": "Run suspended while this step was in flight.",
+          "type": "string"
+        },
+        {
+          "const": "aborted",
+          "description": "Terminal: aborted by handler or user decision.",
+          "type": "string"
+        }
+      ]
+    },
+    "StepStateSummary": {
+      "additionalProperties": false,
+      "description": "The minimal per-step overlay cell (2026-07-17 ruling, additive).",
+      "properties": {
+        "actChainMarks": {
+          "description": "Act-chain runtime marks of the LATEST acting pass (08 §3.4,\nincorporated 2026-07-18): one entry per SETTLED dispatch, keyed\nby 1-based chain position — chips beyond the highest marked\nindex render untried by absence. Absent entirely on\npre-incorporation ledgers and for undispatched steps (the graph\nnever invents runtime state, principle 4).",
+          "items": {
+            "$ref": "#/$defs/ActChainMark"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "degraded": {
+          "description": "Degraded-verification marker of that verdict.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/StepState",
+          "description": "Last recorded step state (closed vocabulary)."
+        },
+        "verdictStatus": {
+          "description": "Verdict status once judged.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:pointlock:schema:projection:v1:run-overview",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The run summary (spine §10.1).",
+  "properties": {
+    "alignment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Alignment counts of the latest resume, when the run resumed."
+    },
+    "awaitingHuman": {
+      "description": "Whether a human request is pending (inbox red dot — 08 §3.5).",
+      "type": "boolean"
+    },
+    "createdAtMs": {
+      "description": "Run creation wall clock.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "deviceId": {
+      "description": "The bound device.",
+      "type": "string"
+    },
+    "finishedAtMs": {
+      "description": "Terminal wall clock, once finished.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "flowId": {
+      "description": "The run's flow.",
+      "type": "string"
+    },
+    "flowVerdictDegraded": {
+      "description": "Degraded marker of the flow verdict.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "flowVerdictStatus": {
+      "description": "Flow verdict status; absent = unfinished, finished unverified, or\naborted (the ledger's `runFinished.verdict` as-is — no folding).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "irHash": {
+      "description": "The executed IR (full `sha256:` form).",
+      "type": "string"
+    },
+    "lastSuspensionProviderStateSummary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderStateSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The most recent suspension's provider profile (07 §2.2,\nincorporated 2026-07-18): present only while the run is actually\nsuspended/awaitingHuman — a superseded suspension profile must\nnot read as current on a resumed or finished run. Named for its\ntiming; the step-anchored captures live in the dossier."
+    },
+    "lockfileDigest": {
+      "description": "The lockfile digest the run bound against (repair guidance: use\nthe SAME lockfile — 08 §2.7; additive, no version bump).",
+      "type": "string"
+    },
+    "projectionVersion": {
+      "const": 1,
+      "description": "Protocol version (spine §10.3)."
+    },
+    "revision": {
+      "description": "Snapshot revision = max ledger seq (08 §5: the invalidation\ncurrency; SSE pushes only `{revision}`).",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "description": "The run.",
+      "type": "string"
+    },
+    "sessionLineage": {
+      "description": "Session lineage (resume generations — 08 §2.4).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "description": "Ledger status (`running`/`suspended`/`awaitingHuman`/`finished`).",
+      "type": "string"
+    },
+    "steps": {
+      "additionalProperties": {
+        "$ref": "#/$defs/StepStateSummary"
+      },
+      "description": "The per-step overlay map, keyed by canonical RunPath string\n(iteration frames included; strip `[i]`/`[i:key]` to join onto\n`FlowGraphView` node anchors — 08 §3.2 aggregate rule).",
+      "type": "object"
+    },
+    "supervisePolicy": {
+      "description": "Supervision policy of the current segment (explicit `null` when\nunsupervised — recorded per segment, never inherited; R13).",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "projectionVersion",
+    "runId",
+    "flowId",
+    "irHash",
+    "lockfileDigest",
+    "deviceId",
+    "sessionLineage",
+    "status",
+    "revision",
+    "createdAtMs",
+    "awaitingHuman",
+    "steps"
+  ],
+  "title": "RunOverview",
+  "type": "object"
+}

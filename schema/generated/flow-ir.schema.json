@@ -1,0 +1,2221 @@
+{
+  "$defs": {
+    "ActChannel": {
+      "description": "Channel subset legal on the act-chain. `vision` is structurally excluded\n(principle 7: vision never locates or acts).",
+      "oneOf": [
+        {
+          "const": "dom",
+          "description": "Web DOM channel.",
+          "type": "string"
+        },
+        {
+          "const": "uiTree",
+          "description": "Native UI-tree channel.",
+          "type": "string"
+        },
+        {
+          "const": "coordinate",
+          "description": "Static-coordinate channel (must carry literal coordinates, bind-phase check).",
+          "type": "string"
+        }
+      ]
+    },
+    "ActionBinding": {
+      "additionalProperties": false,
+      "description": "Ordered, closed act-chain. No declared fallback ⇒ exactly one attempt\n(principle 6: the runner never improvises a downgrade).",
+      "properties": {
+        "attempts": {
+          "description": "The attempts, in declared order. A subsequent attempt is tried only\nafter `action_failed_final` of the previous one (spine §6.2).",
+          "items": {
+            "$ref": "#/$defs/BoundAttempt"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "attempts"
+      ],
+      "type": "object"
+    },
+    "ActionName": {
+      "description": "Provider-native action name (DeviceRail camelCase, e.g. 'tapElement'). Canonical verbs never appear here; provider-qualified names ('<provider>:<action>') are reserved for multi-provider futures and rejected in v0.1.",
+      "maxLength": 256,
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+      "type": "string"
+    },
+    "ActionStepIR": {
+      "additionalProperties": false,
+      "description": "Action step (02 §4.1): fixed pipeline `preflight? → act → observe → assert`.\n\n`assertions` MAY be empty: a mutating action step without assertions\nyields no verdict (report annotation `unverified`, spine R4).",
+      "properties": {
+        "assertions": {
+          "description": "Post-hoc assertions. Empty array ⇒ this step yields no verdict.",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "type": "array"
+        },
+        "binding": {
+          "$ref": "#/$defs/ActionBinding",
+          "description": "The compile-time fully bound act-chain."
+        },
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "effect": {
+          "$ref": "#/$defs/EffectClassAction",
+          "description": "`mutating | readonly` (`pure` is excluded — it belongs to `let`)."
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "idempotent": {
+          "description": "Author-declared idempotence (materialized default: false). Governs\ntimed-out auto-retry and reconcile-uncertain replay permission.",
+          "type": "boolean"
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"action\"`.",
+          "oneOf": [
+            {
+              "const": "action",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/JsonSchemaDocument",
+          "description": "Data contract of the projected output, for downstream static checks."
+        },
+        "outputs": {
+          "$ref": "#/$defs/ExprMap",
+          "description": "Output projection: `Record<name, Expr>` over `ActionResult.output` /\nobservation metadata. Self-refs inside refer to the *raw* output\n(02 §4.1.1). Absent ⇒ identity projection."
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "verb": {
+          "$ref": "#/$defs/CanonicalVerb",
+          "description": "Canonical verb — pure metadata for reports; the runner has no verb\nswitch (spine R7)."
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "effect",
+        "idempotent",
+        "binding",
+        "assertions"
+      ],
+      "type": "object"
+    },
+    "AssertStepIR": {
+      "additionalProperties": false,
+      "description": "Assert step (02 §4.2): side-effect-free observation and judgment.",
+      "properties": {
+        "assertions": {
+          "description": "At least one assertion (an assertion-free assert step is meaningless).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"assert\"`.",
+          "oneOf": [
+            {
+              "const": "assert",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "observe": {
+          "$ref": "#/$defs/ObservationSource",
+          "description": "Observation source: fresh capture or reuse of an action step's\nbefore/after observation (offline re-judgeable)."
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "observe",
+        "assertions"
+      ],
+      "type": "object"
+    },
+    "AssertionIR": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "verifyVia": {
+                "minItems": 1
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "predicate": {
+                "properties": {
+                  "type": {
+                    "const": "expr"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "predicate"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verifyVia": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "predicate": {
+                "properties": {
+                  "type": {
+                    "const": "visual"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "predicate"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verifyVia": {
+                "const": [
+                  "vision"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "else": {
+            "not": {
+              "required": [
+                "visionPrompt"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "predicate": {
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "elementState",
+                      "elementText"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              "verifyVia": {
+                "contains": {
+                  "const": "vision"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "predicate",
+              "verifyVia"
+            ]
+          },
+          "then": {
+            "required": [
+              "visionPrompt"
+            ]
+          }
+        }
+      ],
+      "description": "A single assertion with its explicit verify-chain.\n\nThe three baseline `allOf` conditionals are reproduced on the generated\nschema via `#[schemars(extend)]`:\n1. `expr` predicates consume no observation channel (`verifyVia: []`);\n   all other predicates need at least one channel.\n2. `visual` predicates are vision-only (`verifyVia == [\"vision\"]`).\n3. For `elementState`/`elementText`, `visionPrompt` is required iff the\n   chain contains `vision`, forbidden otherwise (03 §1.4 rule 5; the\n   compiler never synthesizes vision prompts, principle 6).\n\n\"vision only at the chain tail\" is order-sensitive and remains a\nbind-phase check (not expressible in JSON Schema).",
+      "properties": {
+        "assertId": {
+          "description": "Stable assertion id (unique within the step).",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "onMissingInput": {
+          "description": "Const `\"unknown\"` (principle 4): a channel that cannot complete\nevaluation yields unknown for that channel and the chain advances; an\nexhausted chain yields unknown. A completed negative is final\n(spine R5).",
+          "oneOf": [
+            {
+              "const": "unknown",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "predicate": {
+          "$ref": "#/$defs/PredicateIR",
+          "description": "The predicate to evaluate."
+        },
+        "verifyVia": {
+          "description": "Explicit, ordered verify-chain — a subsequence of `[dom, uiTree,\nvision]`. Order carries semantics (degradation order) and participates\nverbatim in `judgeHash` (02 §12.1 rule 5). Uniqueness is enforced by\nthe schema (`uniqueItems`), not by this type.",
+          "items": {
+            "$ref": "#/$defs/VerifyChannel"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "visionPrompt": {
+          "description": "Author-written vision prompt, handed verbatim to the VisionVerifier\nwhen `vision` is the declared degraded tail of an\n`elementState`/`elementText` verify-chain (YAML surface key `visual`).\nRequired iff such a chain contains `vision`, forbidden otherwise.\nPart of the assertion, hence inside the `judgeHash` domain (02 §12.3).",
+          "maxLength": 16384,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "assertId",
+        "predicate",
+        "verifyVia",
+        "onMissingInput"
+      ],
+      "type": "object"
+    },
+    "BackoffMs": {
+      "anyOf": [
+        {
+          "description": "Fixed backoff in milliseconds (≥ 0).",
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exponential schedule.",
+          "properties": {
+            "factor": {
+              "description": "Multiplication factor (≥ 1).",
+              "minimum": 1,
+              "type": "number"
+            },
+            "initial": {
+              "description": "Initial delay in milliseconds (≥ 0).",
+              "minimum": 0,
+              "type": "number"
+            },
+            "max": {
+              "description": "Delay ceiling in milliseconds (≥ 0).",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "initial",
+            "factor",
+            "max"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Backoff declaration: a plain number of milliseconds, or an exponential\nschedule. Numbers use `serde_json::Number` so integers round-trip\ncanonically (02 §12.1 rule 4)."
+    },
+    "BoundAttempt": {
+      "additionalProperties": false,
+      "description": "One fully bound attempt of the act-chain (02 §5.1).\n\n`protection` is const `\"standard\"` in v0.1: bind rejects protected\nactions (spine R6). `coordinate` attempts must carry literal static\ncoordinates in `args` (bind-phase check).",
+      "properties": {
+        "acceptExecutionModes": {
+          "description": "Whitelist of daemon-internal execution modes (spine §6.4 R-degrade).\nDerived per attempt from its own `channel` only; semantic attempts\nnever include `coordinateFallback`. Set semantics — serialized in\ndeclaration order of [`ExecutionMode`], deduplicated on load.",
+          "items": {
+            "$ref": "#/$defs/ExecutionMode"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "actionName": {
+          "$ref": "#/$defs/ActionName",
+          "description": "Provider-native action name (per lockfile.device.actions)."
+        },
+        "args": {
+          "$ref": "#/$defs/ExprMap",
+          "description": "Arguments as expressions; shape-checked against the action's\n`inputSchema` at bind time and re-checked after evaluation at runtime."
+        },
+        "channel": {
+          "$ref": "#/$defs/ActChannel",
+          "description": "Locating channel — [`ActChannel`], so `vision` is structurally\nimpossible here (principle 7)."
+        },
+        "protection": {
+          "description": "Const `\"standard\"` in v0.1 (spine R6).",
+          "oneOf": [
+            {
+              "const": "standard",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "requiresFeature": {
+          "$ref": "#/$defs/FeatureId",
+          "description": "Feature this attempt depends on (e.g. `device.semanticActions.v1`)."
+        }
+      },
+      "required": [
+        "channel",
+        "actionName",
+        "args",
+        "acceptExecutionModes",
+        "protection"
+      ],
+      "type": "object"
+    },
+    "CallStepIR": {
+      "additionalProperties": false,
+      "description": "Call step (02 §6): subflow invocation. Callee pinned by content hash\n(`flowRef.irHash` must appear in `FlowIR.subflows`). Call-by-value:\n`inputs` are evaluated in the caller scope and snapshotted.",
+      "properties": {
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "flowRef": {
+          "$ref": "#/$defs/FlowRef",
+          "description": "The callee, pinned by `flowId` + `irHash`."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "inputs": {
+          "$ref": "#/$defs/ExprMap",
+          "description": "Caller-scope input expressions (call-by-value snapshot)."
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"call\"`.",
+          "oneOf": [
+            {
+              "const": "call",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "flowRef",
+        "inputs"
+      ],
+      "type": "object"
+    },
+    "CanonicalVerb": {
+      "description": "Canonical verbs — report/metadata only. The runner has no verb switch;\nexecution is driven exclusively by `BoundAttempt.actionName` (spine R7).\n\nsnake_case on the wire (spine A.4).",
+      "oneOf": [
+        {
+          "const": "tap",
+          "description": "Tap an element.",
+          "type": "string"
+        },
+        {
+          "const": "set_value",
+          "description": "Set an element's value.",
+          "type": "string"
+        },
+        {
+          "const": "clear",
+          "description": "Clear an element.",
+          "type": "string"
+        },
+        {
+          "const": "wait_for",
+          "description": "Wait for an element condition.",
+          "type": "string"
+        },
+        {
+          "const": "find",
+          "description": "Find an element.",
+          "type": "string"
+        },
+        {
+          "const": "observe",
+          "description": "Explicit observation.",
+          "type": "string"
+        },
+        {
+          "const": "screenshot",
+          "description": "Screenshot capture.",
+          "type": "string"
+        },
+        {
+          "const": "invoke",
+          "description": "Escape hatch for provider/driver-specific actions.",
+          "type": "string"
+        }
+      ]
+    },
+    "EffectClassAction": {
+      "description": "`EffectClass` restricted for action steps; `pure` is excluded because pure\ncomputation never crosses a Provider.",
+      "oneOf": [
+        {
+          "const": "mutating",
+          "description": "Changes the world.",
+          "type": "string"
+        },
+        {
+          "const": "readonly",
+          "description": "Probes the world without changing it.",
+          "type": "string"
+        }
+      ]
+    },
+    "ElementSelectorIR": {
+      "additionalProperties": false,
+      "description": "Structured element selector (isomorphic to DeviceRail `ElementSelector`).\n\nAt least one property must be present (`minProperties: 1`) — enforced by\nthe schema; serde-side an all-`None` value is representable and left to\nthe compiler to reject.",
+      "minProperties": 1,
+      "properties": {
+        "context": {
+          "additionalProperties": false,
+          "description": "UI context scoping (native/web, optional context id).",
+          "properties": {
+            "contextId": {
+              "description": "Optional concrete context id.",
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "contextKind": {
+              "$ref": "#/$defs/UiContextKind",
+              "description": "Context kind (`native` | `web`)."
+            }
+          },
+          "required": [
+            "contextKind"
+          ],
+          "type": "object"
+        },
+        "css": {
+          "description": "CSS selector (web contexts).",
+          "maxLength": 65536,
+          "minLength": 1,
+          "type": "string"
+        },
+        "identifier": {
+          "description": "Stable identifier (resource id / test id).",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "Accessible name.",
+          "maxLength": 65536,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "description": "Accessibility role.",
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/TextMatchIR",
+          "description": "Text content match."
+        },
+        "value": {
+          "description": "Current value match.",
+          "maxLength": 65536,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ElementState": {
+      "description": "Element state predicate values — verbatim equal to DeviceRail\n`WaitForElementCondition`.",
+      "oneOf": [
+        {
+          "const": "present",
+          "description": "Element exists in the UI tree.",
+          "type": "string"
+        },
+        {
+          "const": "visible",
+          "description": "Element is visible.",
+          "type": "string"
+        },
+        {
+          "const": "enabled",
+          "description": "Element is enabled.",
+          "type": "string"
+        },
+        {
+          "const": "absent",
+          "description": "Element is absent.",
+          "type": "string"
+        }
+      ]
+    },
+    "ErrorClass": {
+      "description": "Pointlock-layer closed error taxonomy (spine §5). DeviceRail\n`ErrorInfo.code` is an open string set mapped onto this enum.\n\nsnake_case on the wire, aligned with DeviceRail error-code style.",
+      "oneOf": [
+        {
+          "const": "capability_drift",
+          "description": "Attestation does not match `lockfileDigest`; refuse to start/resume.",
+          "type": "string"
+        },
+        {
+          "const": "bind_arguments_invalid",
+          "description": "Runtime arguments failed the action inputSchema — a compiler/expression bug signal.",
+          "type": "string"
+        },
+        {
+          "const": "action_failed_retryable",
+          "description": "Action failed with `retryable: true` as reported by the daemon.",
+          "type": "string"
+        },
+        {
+          "const": "action_failed_final",
+          "description": "Action failed with `retryable: false`; try the next attempt or fail the step.",
+          "type": "string"
+        },
+        {
+          "const": "action_timed_out",
+          "description": "Action timed out; auto-retry only when the step is declared idempotent.",
+          "type": "string"
+        },
+        {
+          "const": "action_cancelled",
+          "description": "Action cancelled (user cancellation → run aborted).",
+          "type": "string"
+        },
+        {
+          "const": "target_stale",
+          "description": "`UiNodeRef` documentEpoch invalid or locate miss; re-observe before retry.",
+          "type": "string"
+        },
+        {
+          "const": "transport_lost",
+          "description": "Transport lost / daemon exited; suspend and resume from checkpoint.",
+          "type": "string"
+        },
+        {
+          "const": "session_degraded",
+          "description": "Session degraded; current step yields unknown, flow-level onError fires.",
+          "type": "string"
+        }
+      ]
+    },
+    "ExecutionMode": {
+      "description": "Actual execution mode reported by the DeviceRail daemon; the whitelist\nsemantics live on [`crate::BoundAttempt::accept_execution_modes`]\n(spine §6.4 R-degrade).",
+      "oneOf": [
+        {
+          "const": "nativeSemantic",
+          "description": "Native semantic execution.",
+          "type": "string"
+        },
+        {
+          "const": "webSemantic",
+          "description": "Web semantic execution.",
+          "type": "string"
+        },
+        {
+          "const": "coordinateFallback",
+          "description": "Daemon-internal coordinate fallback (must be whitelisted per attempt).",
+          "type": "string"
+        }
+      ]
+    },
+    "Expr": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LitExpr",
+          "description": "Literal JSON value."
+        },
+        {
+          "$ref": "#/$defs/RefExpr",
+          "description": "Reference into the closed scope grammar."
+        },
+        {
+          "$ref": "#/$defs/FnExpr",
+          "description": "Whitelisted pure-function application."
+        }
+      ],
+      "description": "Expression node: exactly one of `lit` / `ref` / `fn` (02 §8.1).\n\nWire shape is the baseline schema's `oneOf` of three closed single-key\nobjects; the variants are mutually exclusive by their required keys, so\nserde's untagged representation is deterministic."
+    },
+    "ExprMap": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Expr"
+      },
+      "description": "Identifier-keyed map of expressions (exemption class 2: keys are data, constrained by propertyNames).",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "type": "object"
+    },
+    "FeatureId": {
+      "description": "DeviceRail feature id passthrough (e.g. 'device.semanticActions.v1'); future Pointlock-owned features use the 'pointlock.' prefix.",
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-zA-Z0-9]+)*\\.v[0-9]+$",
+      "type": "string"
+    },
+    "FlowId": {
+      "maxLength": 256,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+      "type": "string"
+    },
+    "FlowRef": {
+      "additionalProperties": false,
+      "description": "Content-pinned reference to a compiled flow artifact.",
+      "properties": {
+        "flowId": {
+          "$ref": "#/$defs/FlowId",
+          "description": "The callee's flow id."
+        },
+        "irHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "The callee's content hash (integrity pin; runner verifies on load)."
+        }
+      },
+      "required": [
+        "flowId",
+        "irHash"
+      ],
+      "type": "object"
+    },
+    "FnExpr": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "fn": {
+                "enum": [
+                  "eq",
+                  "ne",
+                  "jsonPath"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fn": {
+                "enum": [
+                  "not",
+                  "len"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "maxItems": 1,
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fn": {
+                "enum": [
+                  "and",
+                  "or",
+                  "coalesce"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 2
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fn": {
+                "const": "concat"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fn": {
+                "const": "regexMatch"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "maxItems": 3,
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ],
+      "description": "Whitelisted pure-function application.\n\nArity is enforced by the schema (the `allOf` conditionals below mirror the\nbaseline); argument types plus the literal-only constraints (`jsonPath`\npath, `regexMatch` pattern/flags) are enforced in the compiler `check`\nphase (02 §8.2).",
+      "properties": {
+        "args": {
+          "description": "Ordered argument expressions.",
+          "items": {
+            "$ref": "#/$defs/Expr"
+          },
+          "type": "array"
+        },
+        "fn": {
+          "$ref": "#/$defs/PureFn",
+          "description": "The pure function to apply."
+        }
+      },
+      "required": [
+        "fn",
+        "args"
+      ],
+      "type": "object"
+    },
+    "ForeachStepIR": {
+      "additionalProperties": false,
+      "description": "Foreach step (02 §4.6): iteration container. The iteration variable is\nreferenced via `iter.<as>`; `RunPath` disambiguates rounds with\n`{ kind: \"iteration\", index }` frames, so body stepIds do not (and must\nnot) vary per round.",
+      "properties": {
+        "as": {
+          "$ref": "#/$defs/Identifier",
+          "description": "Iteration variable name (scoped as `iter.<as>`)."
+        },
+        "body": {
+          "description": "Loop body (≥ 1 step).",
+          "items": {
+            "$ref": "#/$defs/StepIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "items": {
+          "$ref": "#/$defs/Expr",
+          "description": "The collection expression."
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"foreach\"`.",
+          "oneOf": [
+            {
+              "const": "foreach",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "items",
+        "as",
+        "body"
+      ],
+      "type": "object"
+    },
+    "HandlerAction": {
+      "description": "The disposition produced by a handler; `kind` values are the closed\n`Disposition` enum: `retry | continue | escalate | abort | repair`\n(spine A.4). No variant carries outputs — error paths cannot enter the\ndata flow (spine R10).\nNote on closedness: `#[schemars(deny_unknown_fields)]` closes each\nvariant object in the generated schema (baseline parity); serde's\ninternally-tagged deserialization is lenient about unknown fields at\nruntime — the schema stays authoritative.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Re-enter the step from `acting` with an independent retry budget.",
+          "properties": {
+            "kind": {
+              "const": "retry",
+              "type": "string"
+            },
+            "policy": {
+              "$ref": "#/$defs/RetryPolicy",
+              "description": "The retry policy for the re-entry."
+            }
+          },
+          "required": [
+            "kind",
+            "policy"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Record and move on (verdict unchanged).",
+          "properties": {
+            "kind": {
+              "const": "continue",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Escalate to a human node (compiler-synthesized stepId, 02 §3).",
+          "properties": {
+            "human": {
+              "$ref": "#/$defs/HumanStepIR",
+              "description": "The embedded human step (boxed: much larger than sibling variants)."
+            },
+            "kind": {
+              "const": "escalate",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "human"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Abort the run.",
+          "properties": {
+            "kind": {
+              "const": "abort",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Run a repair subflow — no data outputs; afterwards re-probe\n(`onResumeDrift`) or re-enter (`onFail`).",
+          "properties": {
+            "flowRef": {
+              "$ref": "#/$defs/FlowRef",
+              "description": "The repair subflow, pinned like a `call`."
+            },
+            "kind": {
+              "const": "repair",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "flowRef"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "HandlerBinding": {
+      "additionalProperties": false,
+      "description": "A handler mounted on a hook.\n\nThe `errorClasses` filter is legal only on `onError` — the baseline\n`if`/`else` conditional is reproduced via `#[schemars(extend)]`.",
+      "else": {
+        "not": {
+          "required": [
+            "errorClasses"
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "hook": {
+            "const": "onError"
+          }
+        },
+        "required": [
+          "hook"
+        ]
+      },
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/HandlerAction",
+          "description": "What to do when the hook fires."
+        },
+        "errorClasses": {
+          "description": "Error-class filter — only meaningful (and only legal) on `onError`.",
+          "items": {
+            "$ref": "#/$defs/ErrorClass"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "hook": {
+          "$ref": "#/$defs/HandlerHook",
+          "description": "The hook this handler fires on."
+        },
+        "maxTriggers": {
+          "description": "Trigger budget (loop guard).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "hook",
+        "action",
+        "maxTriggers"
+      ],
+      "type": "object"
+    },
+    "HandlerHook": {
+      "description": "Handler hook points (spine A.4). Handlers never appear in normal control\nflow; they fire on specific state-machine transitions.",
+      "oneOf": [
+        {
+          "const": "onFail",
+          "description": "Fires when the step verdict folds to fail.",
+          "type": "string"
+        },
+        {
+          "const": "onUnknown",
+          "description": "Fires when the step verdict folds to unknown.",
+          "type": "string"
+        },
+        {
+          "const": "onError",
+          "description": "Fires on an [`ErrorClass`] (optionally filtered via `errorClasses`).",
+          "type": "string"
+        },
+        {
+          "const": "onResumeDrift",
+          "description": "Fires when resume preflight probes detect world drift.",
+          "type": "string"
+        }
+      ]
+    },
+    "Hash": {
+      "description": "Content hash, canonical form 'sha256:<64 lowercase hex>'.",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "HumanMode": {
+      "description": "Interaction mode of a human step (principle 8).",
+      "oneOf": [
+        {
+          "const": "confirm",
+          "description": "Human confirms/rejects; the decision is recorded.",
+          "type": "string"
+        },
+        {
+          "const": "judge",
+          "description": "Human produces the step verdict.",
+          "type": "string"
+        },
+        {
+          "const": "provideInput",
+          "description": "Human provides typed input (requires `outputSchema`).",
+          "type": "string"
+        },
+        {
+          "const": "repairWorld",
+          "description": "Human repairs the world; yields a disposition, never a verdict or output.",
+          "type": "string"
+        }
+      ]
+    },
+    "HumanStepIR": {
+      "additionalProperties": false,
+      "description": "Human step (02 §4.4): human collaboration is a formal node (principle 8).\n\n`onTimeout` is const `\"unknown\"`: a human step that times out never\ndefaults to pass or fail (principles 4/8). `timeoutMs` is required\n(unbounded waits are `runSuspended`, not silent hangs). The\n`provideInput` ⇒ `outputSchema` requirement is a schema conditional.",
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "provideInput"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "properties": {
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "decisions": {
+          "description": "Enumerated options for judge/confirm modes.",
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"human\"`.",
+          "oneOf": [
+            {
+              "const": "human",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "mode": {
+          "$ref": "#/$defs/HumanMode",
+          "description": "Interaction mode."
+        },
+        "onTimeout": {
+          "description": "Const `\"unknown\"` (principle 4).",
+          "oneOf": [
+            {
+              "const": "unknown",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/JsonSchemaDocument",
+          "description": "Input contract for `provideInput` mode (required there, schema-enforced)."
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "presents": {
+          "description": "Evidence/values presented to the human (expressions).",
+          "items": {
+            "$ref": "#/$defs/Expr"
+          },
+          "type": "array"
+        },
+        "prompt": {
+          "description": "The question posed to the human.",
+          "maxLength": 16384,
+          "minLength": 1,
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Required budget; expiry yields verdict `unknown`.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "mode",
+        "prompt",
+        "presents",
+        "timeoutMs",
+        "onTimeout"
+      ],
+      "then": {
+        "required": [
+          "outputSchema"
+        ]
+      },
+      "type": "object"
+    },
+    "Identifier": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "type": "string"
+    },
+    "IfStepIR": {
+      "additionalProperties": false,
+      "description": "If step (02 §4.5): conditional container. Container hashes exclude the\nsubtree — child steps carry their own identity and hashes (02 §12.3).",
+      "properties": {
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "cond": {
+          "$ref": "#/$defs/Expr",
+          "description": "The branch condition."
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "else": {
+          "description": "Steps executed otherwise (≥ 1 when present). Unselected branch steps\nare `skipped`.",
+          "items": {
+            "$ref": "#/$defs/StepIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"if\"`.",
+          "oneOf": [
+            {
+              "const": "if",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "then": {
+          "description": "Steps executed when the condition holds (≥ 1).",
+          "items": {
+            "$ref": "#/$defs/StepIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "cond",
+        "then"
+      ],
+      "type": "object"
+    },
+    "JsonSchemaDocument": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "description": "An embedded JSON Schema (Draft 2020-12) document. Deliberately open (exemption class 1): its internal grammar is governed by the JSON Schema meta-schema, not by this schema."
+    },
+    "LetStepIR": {
+      "additionalProperties": false,
+      "description": "Let step (02 §4.7): pure bindings into the `vars.*` scope, SSA single\nassignment (rebinding an existing var name is a check-phase error).",
+      "properties": {
+        "bindings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ExprMap"
+            }
+          ],
+          "description": "The bindings (≥ 1 entry).",
+          "minProperties": 1,
+          "type": "object"
+        },
+        "checkpoint": {
+          "description": "Whether to materialize a checkpoint at this step boundary. Required\nbecause sealed IR materializes all defaulted fields\n(single-representation rule; default true, false inside macro\nexpansions).",
+          "type": "boolean"
+        },
+        "effectHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"what this step does to the world\" (02 §12.3)."
+        },
+        "handlers": {
+          "description": "Step-level handler hooks; override flow-level ones.",
+          "items": {
+            "$ref": "#/$defs/HandlerBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "judgeHash": {
+          "$ref": "#/$defs/Hash",
+          "description": "Canonical hash of \"how this step is judged\" (02 §12.3)."
+        },
+        "kind": {
+          "description": "Const `\"let\"`.",
+          "oneOf": [
+            {
+              "const": "let",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "preflight": {
+          "description": "Pre-entry world probes; double as resume drift detection\n(spine §6.7-C). Distinct from post-hoc `assertions` (`expect`).",
+          "items": {
+            "$ref": "#/$defs/AssertionIR"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry policy — applies to the act phase only (spine §6.5 mount 1)."
+        },
+        "stepId": {
+          "$ref": "#/$defs/StepId",
+          "description": "Author-provided, flow-unique, stable step identity."
+        },
+        "timeoutMs": {
+          "description": "Step budget in milliseconds.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stepId",
+        "effectHash",
+        "judgeHash",
+        "checkpoint",
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "LitExpr": {
+      "additionalProperties": false,
+      "description": "Literal JSON value (any JSON type, including null).",
+      "properties": {
+        "lit": {
+          "description": "The literal value, verbatim."
+        }
+      },
+      "required": [
+        "lit"
+      ],
+      "type": "object"
+    },
+    "MacroOriginFrame": {
+      "additionalProperties": false,
+      "description": "One frame of a macro expansion chain.",
+      "properties": {
+        "file": {
+          "description": "The file containing the expansion site.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "macro": {
+          "$ref": "#/$defs/Identifier",
+          "description": "The macro's name."
+        },
+        "span": {
+          "$ref": "#/$defs/SourceSpan",
+          "description": "The span of the expansion site."
+        }
+      },
+      "required": [
+        "macro",
+        "file",
+        "span"
+      ],
+      "type": "object"
+    },
+    "ObservationSource": {
+      "anyOf": [
+        {
+          "description": "`\"fresh\"` — trigger one `ProviderSession.observe` (readonly,\nreplay-safe).",
+          "oneOf": [
+            {
+              "const": "fresh",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "additionalProperties": false,
+          "description": "Reuse the referenced action step's archived observation — no device\ncontact, purely offline re-judgeable.",
+          "properties": {
+            "fromStep": {
+              "$ref": "#/$defs/StepId",
+              "description": "The action step whose observation is reused."
+            },
+            "which": {
+              "$ref": "#/$defs/ObservationWhich",
+              "description": "Which observation (`after` | `before`)."
+            }
+          },
+          "required": [
+            "fromStep",
+            "which"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Where an assert step's observation comes from."
+    },
+    "ObservationWhich": {
+      "description": "Which observation of the source action step an assert step reuses.",
+      "oneOf": [
+        {
+          "const": "after",
+          "description": "The `ActionResult.after` observation.",
+          "type": "string"
+        },
+        {
+          "const": "before",
+          "description": "The `ActionResult.before` observation.",
+          "type": "string"
+        }
+      ]
+    },
+    "OutputDecl": {
+      "additionalProperties": false,
+      "description": "One declared flow output.",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/Expr",
+          "description": "Projection expression producing the value."
+        },
+        "name": {
+          "$ref": "#/$defs/Identifier",
+          "description": "Output name."
+        },
+        "schema": {
+          "$ref": "#/$defs/JsonSchemaDocument",
+          "description": "JSON Schema contract of the value."
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "from"
+      ],
+      "type": "object"
+    },
+    "ParamDecl": {
+      "additionalProperties": false,
+      "description": "One declared flow parameter.",
+      "properties": {
+        "default": {
+          "description": "Default value (any JSON). Note: an explicit JSON `null` default does\nnot survive a serde round-trip (absence-by-omission rule, 02 §2.4);\nthe compiler never emits one."
+        },
+        "name": {
+          "$ref": "#/$defs/Identifier",
+          "description": "Parameter name."
+        },
+        "required": {
+          "description": "Whether the run must supply this parameter.",
+          "type": "boolean"
+        },
+        "schema": {
+          "$ref": "#/$defs/JsonSchemaDocument",
+          "description": "JSON Schema contract of the value."
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "required"
+      ],
+      "type": "object"
+    },
+    "PredicateIR": {
+      "description": "The four predicate types (closed, spine A.4), internally tagged `type`.\n\nNote on closedness: `#[schemars(deny_unknown_fields)]` closes each\nvariant object in the generated schema (baseline parity); serde's\ninternally-tagged deserialization is lenient about unknown fields at\nruntime (a documented serde limitation) — the schema stays authoritative.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Element state check; values equal DeviceRail\n`WaitForElementCondition` verbatim.",
+          "properties": {
+            "selector": {
+              "$ref": "#/$defs/ElementSelectorIR",
+              "description": "The element to check."
+            },
+            "state": {
+              "$ref": "#/$defs/ElementState",
+              "description": "The expected state."
+            },
+            "type": {
+              "const": "elementState",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "selector",
+            "state"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Element text check.",
+          "properties": {
+            "match": {
+              "$ref": "#/$defs/TextMatchIR",
+              "description": "The text matcher."
+            },
+            "selector": {
+              "$ref": "#/$defs/ElementSelectorIR",
+              "description": "The element to check."
+            },
+            "type": {
+              "const": "elementText",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "selector",
+            "match"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Pure expression assertion over outputs (consumes no observation\nchannel; `verifyVia` is empty).",
+          "properties": {
+            "expr": {
+              "$ref": "#/$defs/Expr",
+              "description": "The boolean expression to evaluate."
+            },
+            "type": {
+              "const": "expr",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "expr"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Visual assertion (vision-only; the prompt lives here, not in\n`visionPrompt`).",
+          "properties": {
+            "prompt": {
+              "description": "Author-written vision prompt.",
+              "maxLength": 16384,
+              "minLength": 1,
+              "type": "string"
+            },
+            "region": {
+              "$ref": "#/$defs/RectIR",
+              "description": "Optional region of interest."
+            },
+            "type": {
+              "const": "visual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "prompt"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PureFn": {
+      "description": "The closed pure-function whitelist (spine §7 / A.4, 02 §8.2).",
+      "oneOf": [
+        {
+          "const": "eq",
+          "description": "`(T, T) → boolean`",
+          "type": "string"
+        },
+        {
+          "const": "ne",
+          "description": "`(T, T) → boolean`",
+          "type": "string"
+        },
+        {
+          "const": "not",
+          "description": "`(boolean) → boolean`",
+          "type": "string"
+        },
+        {
+          "const": "and",
+          "description": "`(boolean…) → boolean` (arity ≥ 2)",
+          "type": "string"
+        },
+        {
+          "const": "or",
+          "description": "`(boolean…) → boolean` (arity ≥ 2)",
+          "type": "string"
+        },
+        {
+          "const": "concat",
+          "description": "`(string…) → string` (arity ≥ 1)",
+          "type": "string"
+        },
+        {
+          "const": "len",
+          "description": "`(string | array) → number`",
+          "type": "string"
+        },
+        {
+          "const": "coalesce",
+          "description": "`(T?, …, T) → T` — first non-absent value (arity ≥ 2)",
+          "type": "string"
+        },
+        {
+          "const": "jsonPath",
+          "description": "`(any, string) → any` — path must be a literal string",
+          "type": "string"
+        },
+        {
+          "const": "regexMatch",
+          "description": "`(string, string[, string]) → boolean` — pattern/flags must be literals",
+          "type": "string"
+        }
+      ]
+    },
+    "RectIR": {
+      "additionalProperties": false,
+      "description": "Rectangular region, field-compatible with DeviceRail `UiRect`.\n\nUses `serde_json::Number` (not `f64`) so integer inputs round-trip as\nintegers — required by the canonical-form rule that numbers keep their\nshortest ES representation (02 §12.1).",
+      "properties": {
+        "height": {
+          "description": "Height (≥ 0).",
+          "minimum": 0,
+          "type": "number"
+        },
+        "width": {
+          "description": "Width (≥ 0).",
+          "minimum": 0,
+          "type": "number"
+        },
+        "x": {
+          "description": "X origin.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Y origin.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "RefExpr": {
+      "additionalProperties": false,
+      "description": "Reference expression: a [`RefPath`] into the closed scope grammar.",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/RefPath",
+          "description": "The dotted reference path."
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "RefPath": {
+      "description": "Closed scope grammar: params.* | env.* | vars.* | iter.* | steps.<id>.output(.field)* | steps.<id>.verdict. Dotted identifier segments only; array/deep access goes through the jsonPath pure function.",
+      "maxLength": 1024,
+      "pattern": "^(params\\.[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*|env\\.[A-Za-z_][A-Za-z0-9_]*|vars\\.[A-Za-z_][A-Za-z0-9_]*|iter\\.[A-Za-z_][A-Za-z0-9_]*|steps\\.[A-Za-z_][A-Za-z0-9_-]*\\.(verdict|output(\\.[A-Za-z_][A-Za-z0-9_]*)*))$",
+      "type": "string"
+    },
+    "RetryPolicy": {
+      "additionalProperties": false,
+      "description": "Retry policy. Applies to the act phase only (spine §6.5 mount point 1);\neach retry mints a new `callId` and a new `actionIntent` WAL record.",
+      "properties": {
+        "backoffMs": {
+          "$ref": "#/$defs/BackoffMs",
+          "description": "Backoff: fixed milliseconds or an exponential schedule."
+        },
+        "maxAttempts": {
+          "description": "Attempt budget (≥ 1).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "retryOn": {
+          "description": "Which error classes are retryable here. Semantically meaningful:\n`action_failed_retryable`, `target_stale` (forces re-observe), and —\nfor idempotent steps — `action_timed_out`; `check` warns on the rest.\nSet semantics — serialized in [`ErrorClass`] declaration order.",
+          "items": {
+            "$ref": "#/$defs/ErrorClass"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "maxAttempts",
+        "backoffMs",
+        "retryOn"
+      ],
+      "type": "object"
+    },
+    "SourceMapEntry": {
+      "additionalProperties": false,
+      "description": "One source-map entry.",
+      "properties": {
+        "file": {
+          "description": "The YAML source file.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "irPath": {
+          "description": "RFC 6901 JSON Pointer into this FlowIR document.",
+          "pattern": "^(/([^~/]|~0|~1)*)*$",
+          "type": "string"
+        },
+        "origin": {
+          "description": "Macro expansion chain, innermost first. Present iff the IR node was\nproduced by macro expansion — the only structural residue macros\nleave in the IR (02 §7).",
+          "items": {
+            "$ref": "#/$defs/MacroOriginFrame"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "span": {
+          "$ref": "#/$defs/SourceSpan",
+          "description": "The source span."
+        }
+      },
+      "required": [
+        "irPath",
+        "file",
+        "span"
+      ],
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "description": "A 1-based line/column span in a source file.",
+      "properties": {
+        "endCol": {
+          "description": "End column (1-based).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "endLine": {
+          "description": "End line (1-based).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startCol": {
+          "description": "Start column (1-based).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startLine": {
+          "description": "Start line (1-based).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startLine",
+        "startCol",
+        "endLine",
+        "endCol"
+      ],
+      "type": "object"
+    },
+    "StepIR": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActionStepIR",
+          "description": "`kind: \"action\"` — fixed pipeline `preflight? → act → observe → assert`."
+        },
+        {
+          "$ref": "#/$defs/AssertStepIR",
+          "description": "`kind: \"assert\"` — side-effect-free observation and judgment."
+        },
+        {
+          "$ref": "#/$defs/CallStepIR",
+          "description": "`kind: \"call\"` — subflow invocation, pinned by content hash."
+        },
+        {
+          "$ref": "#/$defs/HumanStepIR",
+          "description": "`kind: \"human\"` — human collaboration node (principle 8)."
+        },
+        {
+          "$ref": "#/$defs/IfStepIR",
+          "description": "`kind: \"if\"` — conditional container."
+        },
+        {
+          "$ref": "#/$defs/ForeachStepIR",
+          "description": "`kind: \"foreach\"` — iteration container."
+        },
+        {
+          "$ref": "#/$defs/LetStepIR",
+          "description": "`kind: \"let\"` — pure bindings into `vars.*` (SSA)."
+        }
+      ],
+      "description": "The closed step union (7 kinds, spine A.4), discriminated by `kind` on\nthe wire. See the module docs for why this is `untagged` in serde while\nremaining a `kind`-tagged union on the wire."
+    },
+    "StepId": {
+      "description": "Author-written ids use the first segment only ([A-Za-z_][A-Za-z0-9_-]*). ':'-separated segments are reserved for compiler-synthesized ids (e.g. handler-embedded human steps 'host:onFail:escalate'); synthesized ids never appear in ref paths.",
+      "maxLength": 256,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(:[A-Za-z_][A-Za-z0-9_-]*)*$",
+      "type": "string"
+    },
+    "TextMatchIR": {
+      "additionalProperties": false,
+      "description": "Text matcher (isomorphic to DeviceRail `TextMatch`).\n\n`mode` and `caseSensitive` are required because sealed IR materializes\ndefaults (`exact` / `false`) — the single-representation rule (02 §2.4).",
+      "properties": {
+        "caseSensitive": {
+          "description": "Case sensitivity (materialized default: `false`).",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/TextMatchMode",
+          "description": "Match mode (materialized default: `exact`)."
+        },
+        "value": {
+          "description": "The text to match.",
+          "maxLength": 65536,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "mode",
+        "caseSensitive"
+      ],
+      "type": "object"
+    },
+    "TextMatchMode": {
+      "description": "Text match mode — isomorphic to DeviceRail `TextMatchMode`.",
+      "oneOf": [
+        {
+          "const": "exact",
+          "description": "Exact match.",
+          "type": "string"
+        },
+        {
+          "const": "contains",
+          "description": "Substring match.",
+          "type": "string"
+        }
+      ]
+    },
+    "UiContextKind": {
+      "description": "UI context kind — isomorphic to DeviceRail `UiContextKind`.",
+      "oneOf": [
+        {
+          "const": "native",
+          "description": "Native UI context.",
+          "type": "string"
+        },
+        {
+          "const": "web",
+          "description": "Web UI context.",
+          "type": "string"
+        }
+      ]
+    },
+    "VerdictPolicy": {
+      "description": "Flow-level verdict folding policy. `strict` folds a degraded pass into\n`unknown` (spine §6.3).",
+      "oneOf": [
+        {
+          "const": "standard",
+          "description": "Degraded passes remain passes (flagged `degraded`).",
+          "type": "string"
+        },
+        {
+          "const": "strict",
+          "description": "Degraded passes fold to `unknown`.",
+          "type": "string"
+        }
+      ]
+    },
+    "VerifyChannel": {
+      "description": "Channel subset legal on the verify-chain. `coordinate` is structurally\nexcluded (a coordinate cannot verify anything).",
+      "oneOf": [
+        {
+          "const": "dom",
+          "description": "Web DOM channel.",
+          "type": "string"
+        },
+        {
+          "const": "uiTree",
+          "description": "Native UI-tree channel.",
+          "type": "string"
+        },
+        {
+          "const": "vision",
+          "description": "Vision channel — only legal at the chain tail (bind-phase check).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:pointlock:schema:ir:v0.1:flow-ir",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Pointlock Typed IR v0.1 — the sole input accepted by `pointlock-runner` and\nthe sole output of the `pointlock-compiler` seal phase.\n\nClosed vocabulary per spine Appendix A. All objects are closed except the\nthree documented exemption classes (02 §2.2): embedded JSON Schema\ndocuments, identifier-keyed maps, and `StepBase` (composed into variants).",
+  "properties": {
+    "body": {
+      "description": "The step body (≥ 1 step).",
+      "items": {
+        "$ref": "#/$defs/StepIR"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "flowId": {
+      "$ref": "#/$defs/FlowId",
+      "description": "The flow's name-identity."
+    },
+    "handlers": {
+      "description": "Flow-level handler hooks.",
+      "items": {
+        "$ref": "#/$defs/HandlerBinding"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "irHash": {
+      "$ref": "#/$defs/Hash",
+      "description": "Canonical whole-tree hash (excluding `irHash` itself and `sourceMap`;\ncovers callee irHashes via `subflows` — the link-closure property,\n02 §12.2)."
+    },
+    "irVersion": {
+      "const": 1,
+      "description": "IR semantic-generation number, const `1` in v0.1."
+    },
+    "lockfileDigest": {
+      "$ref": "#/$defs/Hash",
+      "description": "Digest of the `CapabilityLockfile` used at bind time; attestation\nmismatch at runtime is `capability_drift`, refuse to run."
+    },
+    "outputs": {
+      "description": "Output contract.",
+      "items": {
+        "$ref": "#/$defs/OutputDecl"
+      },
+      "type": "array"
+    },
+    "params": {
+      "description": "Input contract.",
+      "items": {
+        "$ref": "#/$defs/ParamDecl"
+      },
+      "type": "array"
+    },
+    "provider": {
+      "additionalProperties": false,
+      "description": "The provider this flow was compiled against.",
+      "properties": {
+        "name": {
+          "description": "Const `\"devicerail\"` — the only provider of v0.1.",
+          "oneOf": [
+            {
+              "const": "devicerail",
+              "description": "The only admissible wire value.",
+              "type": "string"
+            }
+          ]
+        },
+        "version": {
+          "description": "Provider package version the manifest came from.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "requiredFeatures": {
+      "description": "Union of features required by the whole flow; fed into\n`FeatureOffer.required` at session open (free enforcement).\nSet semantics — serialized in lexicographic order.",
+      "items": {
+        "$ref": "#/$defs/FeatureId"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "sourceMap": {
+      "description": "IR path → YAML span mapping, plus macro origin traces. Pure\ndiagnostics: excluded from `irHash` (02 §12.2).",
+      "items": {
+        "$ref": "#/$defs/SourceMapEntry"
+      },
+      "type": "array"
+    },
+    "subflows": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FlowRef"
+      },
+      "description": "Subflow registry: reference, not inline — callees are independent\nartifacts pinned by `irHash` (02 §6).",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$"
+      },
+      "type": "object"
+    },
+    "verdictPolicy": {
+      "$ref": "#/$defs/VerdictPolicy",
+      "description": "Verdict folding policy (`strict` folds degraded pass to unknown)."
+    }
+  },
+  "required": [
+    "irVersion",
+    "flowId",
+    "irHash",
+    "provider",
+    "requiredFeatures",
+    "lockfileDigest",
+    "params",
+    "outputs",
+    "body",
+    "verdictPolicy",
+    "sourceMap",
+    "subflows"
+  ],
+  "title": "FlowIR",
+  "type": "object"
+}

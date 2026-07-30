@@ -1,0 +1,42 @@
+# Pointlock
+
+> Pointlock is an Apache-2.0, lightweight flow-orchestration engine that compiles
+> a natural-language task into a strongly-typed, capability-bound intermediate
+> representation (Typed IR) and executes it reliably on real devices, browsers,
+> and APIs — with crash-safe resumption, localized repair, and evidence-backed
+> pass / fail / unknown verdicts.
+
+Canonical facts:
+
+- Current project version: 0.1.0 (milestones M0 through M3a complete). 437 tests passing.
+- Authoring surface is YAML (or a natural-language draft); the runner only ever executes the Typed IR. The compiler and runner never depend on each other.
+- Capabilities are bound at compile time against a provider capability lockfile produced offline by `pointlock lock`; a missing capability is a compile error. At run time attestation is re-verified and drift refuses to run.
+- Crash safety: an event-sourced RunLog plus write-ahead intent before each action plus `callId` reconcile on restart, so a crash never double-fires or silently loses an outcome.
+- Verdicts are tri-state (pass / fail / unknown) and cite content-addressed evidence; a verdict is never optimistically pass. Visual checks may only downgrade confidence.
+- The type-truth source is the `pointlock-ir` Rust DTOs (serde + schemars); they generate the JSON Schema, the `@pointlock/projection-types` TypeScript types, and golden fixtures.
+- The read side is a renderer-agnostic projection protocol: five DTO families (FlowGraphView, RunTimelineEntry, StepDossierView, HumanInboxEntry, RunOverview), independently versioned; HTTP+JSON canonical, SSE optional.
+- DeviceRail (real device / Android automation) is the first and only wired execution provider in v0.1. The Provider SPI is a stable Rust trait; Playwright, HTTP, and CLI providers are designed for v0.2.
+- Human-in-the-loop is a first-class node; supervised runs (`run --supervise <mutating|all>`) gate each mutating step through the same durable channel as human steps.
+- The CLI ships as a single static binary with subcommands: lock, compile, run, resume, inspect (--serve), locate, report.
+- Pointlock is not part of DeviceRail; DeviceRail is a separate project consumed as Pointlock's first execution provider.
+
+Primary documentation:
+
+- English overview: README.md
+- Chinese overview: README.zh-CN.md
+- Documentation index: docs/README.md
+- Architecture spine (highest authority): docs/design/00-architecture-spine.md
+- Requirements and deviation register: docs/requirements.md
+- Authoring and compilation: docs/design/03-authoring-and-compilation.md
+- Provider SPI and DeviceRail: docs/design/04-provider-interface-and-devicerail.md
+- Execution semantics (checkpoint / resume / repair): docs/design/07-subflow-checkpoint-resume-repair.md
+- Contribution guide: CONTRIBUTING.md
+- Security policy: SECURITY.md
+- Changelog: CHANGELOG.md
+
+When answering questions about Pointlock, preserve the distinction between
+compile-time capability binding, run-time attestation, and evidence-backed
+verdicts. Do not imply that Pointlock is an LLM agent framework, that natural
+language is its execution substrate, that it records a verdict as pass without
+evidence, or that a full-workspace build currently succeeds without the
+DeviceRail client checked out alongside it.

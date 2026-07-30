@@ -1,0 +1,160 @@
+name: Release
+
+# Push a `v*` tag to publish. Locally, `scripts/release.sh` drives the whole
+# release — it derives the next version from the chosen bump, rewrites every
+# version touchpoint, commits, and pushes the tag:
+#   scripts/release.sh publish          # interactive: current/major/minor/patch
+#   scripts/release.sh publish patch    # non-interactive
+# Pushing the tag triggers this workflow, which publishes the workspace to
+# crates.io (and, opt-in, the npm packages). Publishing is irreversible
+# (crates can only be yanked), so the tag is the single deliberate trigger.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # create the GitHub Release
+  id-token: write   # OIDC token for crates.io Trusted Publishing + npm provenance
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # crates.io — publishes all ten crates in dependency order.
+  # pointlock-provider-devicerail resolves `devicerail-client` from crates.io
+  # when published (the sibling path only serves local development).
+  # ---------------------------------------------------------------------------
+  crates:
+    name: publish crates to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pointlock
+
+      # The workspace can only be *resolved* with the DeviceRail client present:
+      # pointlock-provider-devicerail (a member) depends on it via the sibling
+      # path `../device-rail/crates/client`. Set the repository variable
+      # DEVICERAIL_REPO (owner/name); add the secret DEVICERAIL_TOKEN if it is
+      # private. Checking it out next to `pointlock/` makes the path resolve.
+      - name: Check out the DeviceRail sibling (workspace resolution)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.DEVICERAIL_REPO }}
+          path: device-rail
+          token: ${{ secrets.DEVICERAIL_TOKEN }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pointlock
+
+      # The tag must match the workspace version, or `v0.2.0` would ship 0.1.0.
+      - name: Verify tag matches workspace version
+        working-directory: pointlock
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+          echo "tag=$tag  workspace=$ver"
+          test "$tag" = "$ver" || { echo "::error::tag v$tag != workspace version $ver"; exit 1; }
+
+      # Never publish a version that does not pass the full local gate.
+      - name: Gates (fmt + clippy + test)
+        working-directory: pointlock
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+
+      # First releases use a classic token: crates.io Trusted Publishing can
+      # only be configured on a crate that already exists, so brand-new crates
+      # cannot mint an OIDC token. Store a short-lived token that may create
+      # new crates as the CARGO_REGISTRY_TOKEN secret, and after the first
+      # release revoke it, configure a Trusted Publisher on every crate
+      # (this workflow file, no environment), and swap the env below for:
+      #   - uses: rust-lang/crates-io-auth-action@v1
+      #     id: auth
+      #   ...
+      #   CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+      - name: Publish crates in dependency order
+        working-directory: pointlock
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          for c in \
+            pointlock-ir \
+            pointlock-expr \
+            pointlock-provider-kit \
+            pointlock-vision \
+            pointlock-store \
+            pointlock-compiler \
+            pointlock-human-cli \
+            pointlock-runner \
+            pointlock-provider-devicerail \
+            pointlock-cli
+          do
+            # Skipping what crates.io already has makes a re-run after a
+            # partial publish safe: the loop resumes at the first missing
+            # crate instead of failing on an already-published one.
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --header 'User-Agent: Pointlock release workflow' \
+              "https://crates.io/api/v1/crates/$c/$version")"
+            if [ "$status" = "200" ]; then
+              echo "$c $version is already on crates.io; skipping"
+              continue
+            fi
+            if [ "$status" != "404" ]; then
+              echo "::error::crates.io returned HTTP $status for $c $version"
+              exit 1
+            fi
+            echo "::group::cargo publish -p $c"
+            cargo publish -p "$c"
+            echo "::endgroup::"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+  # ---------------------------------------------------------------------------
+  # npm — opt-in. Set the repository variable PUBLISH_NPM=true and the secret
+  # NPM_TOKEN (an automation token for the @pointlock scope) to enable.
+  # Publishes only the two library packages; ir-types (generated,
+  # type-only — private until its consumption surface stabilizes),
+  # walk-drafter (registered in spine A.1, unpublished in v0.1) and ui
+  # (app) stay private.
+  # ---------------------------------------------------------------------------
+  npm:
+    name: publish npm packages
+    runs-on: ubuntu-latest
+    needs: crates
+    if: ${{ vars.PUBLISH_NPM == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - name: Publish @pointlock/projection-types and @pointlock/nl-drafter
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          for directory in packages/projection-types packages/nl-drafter; do
+            name="$(node -p "require('./$directory/package.json').name")"
+            # Same re-run safety as the crates loop: skip what npm already has.
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is already on npm; skipping"
+              continue
+            fi
+            ( cd "$directory" && npm publish --provenance --access public )
+          done

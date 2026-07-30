@@ -1,0 +1,48 @@
+# M0 acceptance demo (08 §6.1): the 3-step hello narrative — wait for the
+# note input, type into it, judge the readback.
+#
+# Assembly: the fake registration (echo semantics) under the v0.1
+# provider name `devicerail` — every action succeeds with `output` = the
+# evaluated arguments, so the expr assertions are real judgments over
+# step outputs, not tautologies.
+flow: m0_hello
+provider: devicerail
+steps:
+  # The input exists (readonly probe; echo output names the element).
+  - id: waitInput
+    invoke:
+      action: findElement
+      args:
+        element: note-input
+    effect: readonly
+
+  # Type the note (the M0 WAL discipline rides this dispatch:
+  # actionIntent is fsynced before the wire request).
+  - id: typeNote
+    invoke:
+      action: setElementValue
+      args:
+        element: note-input
+        value: hello pointlock
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        value: { type: string }
+
+  # Judge: the note really was typed (expr over the echoed outputs).
+  - id: checkNote
+    invoke:
+      action: findElement
+      args:
+        element: note-input
+    effect: readonly
+    expect_schema:
+      type: object
+      properties:
+        element: { type: string }
+    expect:
+      - assert_id: note_was_typed
+        expr: ${{ eq(steps.typeNote.output.value, "hello pointlock") }}
+      - assert_id: reads_the_note_input
+        expr: ${{ eq(steps.checkNote.output.element, "note-input") }}

@@ -1,0 +1,147 @@
+{
+  "projectionVersion": 1,
+  "flowId": "wifi_toggle",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nodes": [
+    {
+      "id": "open_wifi_settings",
+      "runPath": "wifi_toggle@aaaaaaaa/open_wifi_settings",
+      "kind": "action",
+      "verb": "tap",
+      "actionName": "tapElement",
+      "mutating": true,
+      "actChain": [
+        "uiTree",
+        "coordinate"
+      ],
+      "assertionCount": 1
+    },
+    {
+      "id": "set_ssid:field",
+      "runPath": "wifi_toggle@aaaaaaaa/set_ssid:field",
+      "kind": "action",
+      "verb": "set_value",
+      "actionName": "setElementValue",
+      "mutating": true,
+      "actChain": [
+        "uiTree"
+      ],
+      "assertionCount": 0
+    },
+    {
+      "id": "wifi_on_visible",
+      "runPath": "wifi_toggle@aaaaaaaa/wifi_on_visible",
+      "kind": "assert",
+      "observe": "fresh",
+      "assertions": [
+        {
+          "assertId": "toggle_enabled",
+          "predicate": "elementState",
+          "verifyVia": [
+            "uiTree",
+            "vision"
+          ]
+        },
+        {
+          "assertId": "ssid_listed",
+          "predicate": "elementText",
+          "verifyVia": [
+            "uiTree"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ensure_session",
+      "runPath": "wifi_toggle@aaaaaaaa/ensure_session/call→ensure_logged_in@bbbbbbbb",
+      "kind": "call",
+      "calleeFlowId": "ensure_logged_in",
+      "calleeIrHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "inputKeys": [
+        "username"
+      ]
+    },
+    {
+      "id": "wait_if_passed",
+      "runPath": "wifi_toggle@aaaaaaaa/wait_if_passed",
+      "kind": "if",
+      "cond": "{\"fn\":\"eq\",\"args\":[{\"ref\":\"steps.wifi_on_visible.verdict\"},{\"lit\":\"pass\"}]}",
+      "hasElse": false
+    },
+    {
+      "id": "wait_connected",
+      "runPath": "wifi_toggle@aaaaaaaa/wait_if_passed/wait_connected",
+      "parentId": "wait_if_passed",
+      "region": "then",
+      "kind": "action",
+      "verb": "wait_for",
+      "actionName": "waitForElement",
+      "mutating": false,
+      "actChain": [
+        "uiTree"
+      ],
+      "assertionCount": 1
+    },
+    {
+      "id": "confirm_wifi",
+      "runPath": "wifi_toggle@aaaaaaaa/confirm_wifi",
+      "kind": "human",
+      "mode": "confirm",
+      "promptHead": "确认设备已连接到目标 Wi-Fi 网络",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "label",
+      "runPath": "wifi_toggle@aaaaaaaa/label",
+      "kind": "let",
+      "bindingKeys": [
+        "report_label"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "kind": "seq",
+      "from": "open_wifi_settings",
+      "to": "set_ssid:field"
+    },
+    {
+      "kind": "seq",
+      "from": "set_ssid:field",
+      "to": "wifi_on_visible"
+    },
+    {
+      "kind": "seq",
+      "from": "wifi_on_visible",
+      "to": "ensure_session"
+    },
+    {
+      "kind": "seq",
+      "from": "ensure_session",
+      "to": "wait_if_passed"
+    },
+    {
+      "kind": "branch",
+      "from": "wait_if_passed",
+      "to": "wait_connected",
+      "label": "then"
+    },
+    {
+      "kind": "seq",
+      "from": "wait_if_passed",
+      "to": "confirm_wifi"
+    },
+    {
+      "kind": "seq",
+      "from": "confirm_wifi",
+      "to": "label"
+    }
+  ],
+  "flowHooks": [
+    {
+      "hook": "onUnknown",
+      "disposition": "escalate",
+      "maxTriggers": 1
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@pointlock/ir-types",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Type-only package generated from the pointlock-ir FlowIR schema (R12). Do not edit src/ by hand \u2014 run `pnpm generate` after re-emitting the Rust-side schema.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "check": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.0",
+    "typescript": "^5.8.0"
+  }
+}

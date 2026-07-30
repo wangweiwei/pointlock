@@ -1,0 +1,46 @@
+{
+  "irVersion": 1,
+  "flowId": "minimal_foreach",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "foreach",
+      "stepId": "loop",
+      "effectHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "judgeHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "checkpoint": true,
+      "items": {
+        "lit": [
+          "a",
+          "b"
+        ]
+      },
+      "as": "item",
+      "body": [
+        {
+          "kind": "let",
+          "stepId": "copy_item",
+          "effectHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "judgeHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "checkpoint": false,
+          "bindings": {
+            "current": {
+              "ref": "iter.item"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

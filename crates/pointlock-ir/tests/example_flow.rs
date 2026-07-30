@@ -1,0 +1,312 @@
+//! Deserializes the complete compiled-FlowIR example of
+//! `docs/design/02-typed-ir.md` §13.2 and round-trips it, plus a few
+//! spot rejections. Full behavioral-equivalence testing against the
+//! baseline schema fixture corpus is a later milestone.
+
+use pointlock_ir::{FlowIR, StepIR};
+
+/// The FlowIR document of 02 §13.2, verbatim.
+const EXAMPLE_FLOW: &str = r#"
+{
+  "irVersion": 1,
+  "flowId": "wifi_toggle",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": { "name": "devicerail", "version": "0.4.2" },
+  "requiredFeatures": [
+    "device.semanticActions.v1",
+    "observation.uiSnapshot.v1",
+    "verdict.record.v1"
+  ],
+  "lockfileDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "params": [
+    { "name": "ssid", "schema": { "type": "string", "minLength": 1 }, "required": true },
+    { "name": "username", "schema": { "type": "string" }, "required": false, "default": "qa-bot" }
+  ],
+  "outputs": [
+    { "name": "wifi_verdict",
+      "schema": { "enum": ["pass", "fail", "unknown"] },
+      "from": { "ref": "steps.wifi_on_visible.verdict" } }
+  ],
+  "verdictPolicy": "strict",
+  "body": [
+    {
+      "kind": "action",
+      "stepId": "open_wifi_settings",
+      "effectHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "judgeHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "checkpoint": true,
+      "verb": "tap",
+      "effect": "mutating",
+      "idempotent": true,
+      "timeoutMs": 15000,
+      "preflight": [
+        { "assertId": "settings_root_visible",
+          "predicate": { "type": "elementState",
+                         "selector": { "identifier": "settings_root" }, "state": "visible" },
+          "verifyVia": ["uiTree"],
+          "onMissingInput": "unknown" }
+      ],
+      "retry": {
+        "maxAttempts": 2,
+        "backoffMs": { "initial": 500, "factor": 2, "max": 4000 },
+        "retryOn": ["action_failed_retryable", "target_stale"]
+      },
+      "binding": {
+        "attempts": [
+          { "channel": "uiTree",
+            "actionName": "tapElement",
+            "args": { "target": { "lit": { "kind": "selector",
+                                           "selector": { "identifier": "wifi_row" } } } },
+            "requiresFeature": "device.semanticActions.v1",
+            "acceptExecutionModes": ["nativeSemantic", "webSemantic"],
+            "protection": "standard" },
+          { "channel": "coordinate",
+            "actionName": "tap",
+            "args": { "x": { "lit": 512 }, "y": { "lit": 384 } },
+            "acceptExecutionModes": ["nativeSemantic", "webSemantic", "coordinateFallback"],
+            "protection": "standard" }
+        ]
+      },
+      "assertions": [
+        { "assertId": "wifi_screen_open",
+          "predicate": { "type": "elementState",
+                         "selector": { "identifier": "wifi_toggle" }, "state": "visible" },
+          "verifyVia": ["uiTree", "vision"],
+          "visionPrompt": "Wi-Fi 设置页已打开，Wi-Fi 开关控件在屏幕上可见",
+          "onMissingInput": "unknown" }
+      ]
+    },
+    {
+      "kind": "action",
+      "stepId": "set_ssid:field",
+      "effectHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "judgeHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "checkpoint": false,
+      "verb": "set_value",
+      "effect": "mutating",
+      "idempotent": true,
+      "binding": {
+        "attempts": [
+          { "channel": "uiTree",
+            "actionName": "setElementValue",
+            "args": {
+              "target": { "lit": { "kind": "selector",
+                                   "selector": { "identifier": "ssid_field" } } },
+              "value": { "ref": "params.ssid" }
+            },
+            "requiresFeature": "device.semanticActions.v1",
+            "acceptExecutionModes": ["nativeSemantic", "webSemantic"],
+            "protection": "standard" }
+        ]
+      },
+      "assertions": []
+    },
+    {
+      "kind": "assert",
+      "stepId": "wifi_on_visible",
+      "effectHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "judgeHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "checkpoint": true,
+      "observe": "fresh",
+      "assertions": [
+        { "assertId": "toggle_enabled",
+          "predicate": { "type": "elementState",
+                         "selector": { "identifier": "wifi_toggle" }, "state": "enabled" },
+          "verifyVia": ["uiTree", "vision"],
+          "visionPrompt": "Wi-Fi 开关处于打开（enabled）状态",
+          "onMissingInput": "unknown" },
+        { "assertId": "ssid_listed",
+          "predicate": { "type": "elementText",
+                         "selector": { "identifier": "current_network_label" },
+                         "match": { "value": "Pointlock-Lab", "mode": "contains", "caseSensitive": false } },
+          "verifyVia": ["uiTree"],
+          "onMissingInput": "unknown" }
+      ]
+    },
+    {
+      "kind": "call",
+      "stepId": "ensure_session",
+      "effectHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "judgeHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "checkpoint": true,
+      "flowRef": { "flowId": "ensure_logged_in",
+                   "irHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      "inputs": { "username": { "ref": "params.username" } }
+    },
+    {
+      "kind": "if",
+      "stepId": "wait_if_passed",
+      "effectHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "judgeHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "checkpoint": true,
+      "cond": { "fn": "eq",
+                "args": [ { "ref": "steps.wifi_on_visible.verdict" }, { "lit": "pass" } ] },
+      "then": [
+        {
+          "kind": "action",
+          "stepId": "wait_connected",
+          "effectHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "judgeHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "checkpoint": true,
+          "verb": "wait_for",
+          "effect": "readonly",
+          "idempotent": true,
+          "timeoutMs": 30000,
+          "binding": {
+            "attempts": [
+              { "channel": "uiTree",
+                "actionName": "waitForElement",
+                "args": { "selector": { "lit": { "identifier": "connected_banner" } },
+                          "condition": { "lit": "visible" } },
+                "requiresFeature": "device.semanticActions.v1",
+                "acceptExecutionModes": ["nativeSemantic", "webSemantic"],
+                "protection": "standard" }
+            ]
+          },
+          "outputs": { "matched": { "ref": "steps.wait_connected.output.matched" } },
+          "outputSchema": { "type": "object",
+                            "properties": { "matched": { "type": "boolean" } },
+                            "required": ["matched"] },
+          "assertions": [
+            { "assertId": "banner_matched",
+              "predicate": { "type": "expr",
+                             "expr": { "fn": "eq",
+                                       "args": [ { "ref": "steps.wait_connected.output.matched" },
+                                                 { "lit": true } ] } },
+              "verifyVia": [],
+              "onMissingInput": "unknown" }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "human",
+      "stepId": "confirm_wifi",
+      "effectHash": "sha256:abababababababababababababababababababababababababababababababab",
+      "judgeHash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "checkpoint": true,
+      "mode": "confirm",
+      "prompt": "确认设备已连接到目标 Wi-Fi 网络",
+      "presents": [ { "ref": "steps.wifi_on_visible.verdict" }, { "ref": "params.ssid" } ],
+      "decisions": ["confirmed", "rejected"],
+      "timeoutMs": 600000,
+      "onTimeout": "unknown"
+    },
+    {
+      "kind": "let",
+      "stepId": "label",
+      "effectHash": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+      "judgeHash": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+      "checkpoint": true,
+      "bindings": {
+        "report_label": { "fn": "concat",
+                          "args": [ { "lit": "wifi:" }, { "ref": "params.ssid" } ] }
+      }
+    }
+  ],
+  "handlers": [
+    { "hook": "onUnknown",
+      "action": {
+        "kind": "escalate",
+        "human": {
+          "kind": "human",
+          "stepId": "flow:onUnknown:escalate",
+          "effectHash": "sha256:3434343434343434343434343434343434343434343434343434343434343434",
+          "judgeHash": "sha256:5656565656565656565656565656565656565656565656565656565656565656",
+          "checkpoint": true,
+          "mode": "judge",
+          "prompt": "机器无法判定本步结果，请依据证据人工裁决",
+          "presents": [],
+          "decisions": ["pass", "fail", "unknown"],
+          "timeoutMs": 3600000,
+          "onTimeout": "unknown"
+        }
+      },
+      "maxTriggers": 1 }
+  ],
+  "sourceMap": [
+    { "irPath": "/body/0",
+      "file": "flows/wifi_toggle.flow.yaml",
+      "span": { "startLine": 33, "startCol": 3, "endLine": 52, "endCol": 62 } },
+    { "irPath": "/body/1",
+      "file": "flows/wifi_toggle.flow.yaml",
+      "span": { "startLine": 18, "startCol": 7, "endLine": 20, "endCol": 24 },
+      "origin": [
+        { "macro": "fill_field",
+          "file": "flows/wifi_toggle.flow.yaml",
+          "span": { "startLine": 54, "startCol": 3, "endLine": 57, "endCol": 32 } }
+      ] }
+  ],
+  "subflows": {
+    "ensure_logged_in": {
+      "flowId": "ensure_logged_in",
+      "irHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+}
+"#;
+
+#[test]
+fn example_flow_round_trips() {
+    let flow: FlowIR = serde_json::from_str(EXAMPLE_FLOW).expect("02 §13.2 deserializes");
+
+    // Spot checks on the typed structure.
+    assert_eq!(flow.flow_id.as_str(), "wifi_toggle");
+    assert_eq!(flow.body.len(), 7);
+    assert_eq!(flow.body[0].kind(), "action");
+    assert_eq!(flow.body[1].step_id().as_str(), "set_ssid:field");
+    assert!(flow.body[1].step_id().is_synthesized());
+    assert_eq!(flow.body[2].kind(), "assert");
+    assert_eq!(flow.body[4].kind(), "if");
+    let StepIR::If(if_step) = &flow.body[4] else {
+        panic!("body[4] should be an if step");
+    };
+    assert_eq!(if_step.then.len(), 1);
+    assert!(if_step.r#else.is_none());
+    assert_eq!(flow.handlers.as_ref().map(Vec::len), Some(1));
+    assert_eq!(flow.required_features.len(), 3);
+
+    // Round trip: absent options stay absent, no nulls appear, enum
+    // literals and camelCase names survive verbatim.
+    let reserialized = serde_json::to_value(&flow).expect("reserializes");
+    let original: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    assert_eq!(reserialized, original);
+}
+
+#[test]
+fn rejects_out_of_grammar_values() {
+    // Unsupported irVersion.
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["irVersion"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // Reserved scope root in a ref path.
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["outputs"][0]["from"] = serde_json::json!({ "ref": "secrets.token" });
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // Malformed hash.
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["irHash"] = serde_json::json!("sha256:zz");
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // protection must be const "standard" (spine R6).
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["body"][0]["binding"]["attempts"][0]["protection"] = serde_json::json!("protected");
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // vision can never appear on the act-chain (principle 7, typed).
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["body"][0]["binding"]["attempts"][0]["channel"] = serde_json::json!("vision");
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // coordinate can never appear on the verify-chain.
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["body"][0]["assertions"][0]["verifyVia"][0] = serde_json::json!("coordinate");
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+
+    // onMissingInput is const "unknown" (principle 4).
+    let mut doc: serde_json::Value = serde_json::from_str(EXAMPLE_FLOW).unwrap();
+    doc["body"][0]["assertions"][0]["onMissingInput"] = serde_json::json!("fail");
+    assert!(serde_json::from_value::<FlowIR>(doc).is_err());
+}

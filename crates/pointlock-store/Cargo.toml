@@ -1,0 +1,33 @@
+[package]
+name = "pointlock-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Pointlock's event-sourced RunLog, SQLite/WAL checkpoints, evidence store, and read-side projections."
+keywords = ["pointlock", "event-sourcing", "sqlite", "checkpoint", "automation"]
+categories = ["database", "development-tools"]
+
+[dependencies]
+pointlock-ir = { workspace = true }
+# provideInput responses are validated against the request's outputSchema
+# inside the single-writer arbitration (06 §4.3 rule 3).
+jsonschema = { workspace = true }
+rusqlite = { workspace = true }
+# The projection DTOs (spine §10.2) are serde+schemars types like the IR:
+# same generation pipeline, same golden-fixture anchoring.
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# Integration tests open a second raw connection to corrupt the checkpoint
+# row (verify_checkpoint mismatch detection) and to count rows directly.
+rusqlite = { workspace = true }

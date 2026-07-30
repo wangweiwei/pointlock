@@ -1,0 +1,58 @@
+# M1 acceptance demo (08 §6.2): a login flow over the REAL DeviceRail
+# provider — the daemon's built-in mock driver executes its native
+# actions and the assertions judge the driver's real outputs. Capability
+# binding is real: compile refuses any action the daemon did not freeze
+# into the lockfile (RF4004), and the run attests the live world against
+# that lockfile before dispatching anything.
+flow: m1_login
+provider: devicerail
+params:
+  username:
+    schema: { type: string, minLength: 1 }
+    required: false
+    default: demo-user
+steps:
+  # Focus the username field (driver-native coordinate tap).
+  - id: focus_username
+    invoke:
+      action: tap
+      args: { x: 100, y: 180 }
+    effect: mutating
+    idempotent: true
+    expect_schema:
+      type: object
+      properties:
+        accepted: { type: boolean }
+    expect:
+      - assert_id: focus_accepted
+        expr: ${{ eq(steps.focus_username.output.accepted, true) }}
+
+  # Type the username (driver-native inputText reports the count of
+  # characters it typed — judged against the param's real length).
+  - id: type_username
+    invoke:
+      action: inputText
+      args:
+        text: ${{ params.username }}
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        characters: { type: number }
+    expect:
+      - assert_id: username_typed
+        expr: ${{ eq(steps.type_username.output.characters, len(params.username)) }}
+
+  # Submit (tap the login button coordinates).
+  - id: submit_login
+    invoke:
+      action: tap
+      args: { x: 100, y: 320 }
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        accepted: { type: boolean }
+    expect:
+      - assert_id: submit_accepted
+        expr: ${{ eq(steps.submit_login.output.accepted, true) }}

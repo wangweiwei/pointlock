@@ -1,0 +1,30 @@
+{
+  "irVersion": 1,
+  "flowId": "invalid_hash_format",
+  "irHash": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "let",
+      "stepId": "bind",
+      "effectHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "judgeHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "checkpoint": true,
+      "bindings": {
+        "greeting": {
+          "lit": "hello"
+        }
+      }
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

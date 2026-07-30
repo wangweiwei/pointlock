@@ -1,0 +1,12 @@
+/target
+node_modules
+dist
+*.log
+.DS_Store
+.claude/
+
+# Quick-start artifacts written into the repo root (README usage) and
+# local run stores — never committed.
+/.runs/
+/*.lock.json
+/*.ir.json

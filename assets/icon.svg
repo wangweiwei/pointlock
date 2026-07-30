@@ -1,0 +1,21 @@
+<svg width="190" height="190" viewBox="0 0 190 190" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pointlock icon">
+  <title>Pointlock</title>
+  <desc>A lock bolt driven into a keeper and seated — the route is proven locked before anything moves.</desc>
+  <defs>
+    <linearGradient id="pl-icon" x1="22" y1="22" x2="168" y2="168" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00CCFF"/>
+      <stop offset="0.52" stop-color="#0D4DE5"/>
+      <stop offset="1" stop-color="#121CBF"/>
+    </linearGradient>
+    <!-- maskUnits is mandatory here — see the note in logo.svg. The default
+         objectBoundingBox region ignores stroke width and chamfers the ring. -->
+    <mask id="pl-icon-seam" maskUnits="userSpaceOnUse" x="0" y="0" width="190" height="190">
+      <rect width="190" height="190" fill="#fff"/>
+      <path d="M-10 95 H133" stroke="#000" stroke-width="48" fill="none"/>
+    </mask>
+  </defs>
+  <!-- The same mark as the logo, redrawn rather than scaled: tighter margins and
+       heavier strokes so the keeper still holds its hole at favicon sizes. -->
+  <circle cx="107" cy="95" r="52" fill="none" stroke="url(#pl-icon)" stroke-width="32" mask="url(#pl-icon-seam)"/>
+  <path d="M29 95 H117" fill="none" stroke="url(#pl-icon)" stroke-width="30" stroke-linecap="round"/>
+</svg>

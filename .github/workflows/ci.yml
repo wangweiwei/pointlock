@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # TypeScript workspace — fully self-contained (consumes committed generated types).
+  web:
+    name: Web (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm -r test
+
+  # Companion of the gated Rust job: when DEVICERAIL_REPO is unset the
+  # Rust gates CANNOT run (the workspace references the sibling client by
+  # path) — this job then turns that silence into a visible warning
+  # annotation, so a green run never quietly means "Rust untested".
+  rust-gate-notice:
+    name: Rust (SKIPPED — DEVICERAIL_REPO unset)
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEVICERAIL_REPO == '' }}
+    steps:
+      - run: |
+          echo "::warning title=Rust gates skipped::DEVICERAIL_REPO is not configured — fmt/clippy/test did NOT run. Set the repository variable (Settings → Variables) to activate the Rust job. See CONTRIBUTING.md."
+
+  # Rust core — needs the DeviceRail client, referenced as a sibling path checkout
+  # (../device-rail/crates/client) until it is published to crates.io. This job is
+  # SKIPPED unless a repository variable `DEVICERAIL_REPO` is set (owner/name of the
+  # DeviceRail repo the runner can access); set it under Settings → Secrets and
+  # variables → Actions → Variables to activate the job.
+  # If the DeviceRail repo is private, also add a `DEVICERAIL_TOKEN` secret (a PAT or
+  # deploy key with read access) — it is consumed by the checkout step below.
+  # See CONTRIBUTING.md.
+  rust:
+    name: Rust (fmt + clippy + test)
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEVICERAIL_REPO != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pointlock
+      - name: Check out DeviceRail sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.DEVICERAIL_REPO }}
+          path: device-rail
+          token: ${{ secrets.DEVICERAIL_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pointlock
+      - name: fmt
+        working-directory: pointlock
+        run: cargo fmt --all --check
+      - name: clippy
+        working-directory: pointlock
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test
+        working-directory: pointlock
+        run: cargo test --workspace
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: generated artifacts are current
+        working-directory: pointlock
+        run: |
+          cargo run -p pointlock-ir --bin pointlock-ir-schema-gen
+          cargo run -p pointlock-store --bin pointlock-projection-schema-gen
+          pnpm install --frozen-lockfile
+          pnpm --filter @pointlock/ir-types generate
+          pnpm --filter @pointlock/projection-types generate
+          git diff --exit-code schema/generated/ \
+            packages/ir-types/src packages/ir-types/test \
+            packages/projection-types/src packages/projection-types/test \
+            || { echo "::error title=Generated artifacts drifted::re-run the gens and commit"; exit 1; }

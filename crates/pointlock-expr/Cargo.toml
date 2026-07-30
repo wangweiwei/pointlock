@@ -1,0 +1,21 @@
+[package]
+name = "pointlock-expr"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "The expression language shared by the Pointlock compiler and runner."
+keywords = ["pointlock", "expression", "interpreter", "automation", "workflow"]
+categories = ["parser-implementations"]
+
+[dependencies]
+pointlock-ir = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+serde_json_path = { workspace = true }
+regex = { workspace = true }

@@ -1,0 +1,58 @@
+# M0 acceptance demo (08 §6.1): a 3-step flow over the M0 authoring subset
+# (`invoke` steps + expr `expect` assertions).
+#
+# Assembly: `pointlock lock --provider fake` + `pointlock run --provider fake`
+# register the FakeProvider under the v0.1 provider name `devicerail`; its
+# echo semantics make every action succeed with `output` = the evaluated
+# arguments, so the assertions below are real judgments over step outputs,
+# not tautologies.
+flow: wifi_demo
+provider: devicerail
+params:
+  ssid:
+    schema: { type: string, minLength: 1 }
+    required: true
+  note:
+    schema: { type: string }
+    required: false
+    default: connected by pointlock
+steps:
+  # tap: open the Wi-Fi panel.
+  - id: open_panel
+    invoke:
+      action: tapElement
+      args:
+        element: wifi_row
+    effect: mutating
+    idempotent: true
+
+  # set value: type the SSID (expression argument, evaluated at ready).
+  - id: set_ssid
+    invoke:
+      action: setElementValue
+      args:
+        element: ssid_field
+        value: ${{ params.ssid }}
+    effect: mutating
+    expect_schema:
+      type: object
+      properties:
+        value: { type: string }
+
+  # read state back and judge: the expr predicates reference upstream step
+  # outputs (steps.<id>.output) and the step's own echoed output.
+  - id: read_back
+    invoke:
+      action: findElement
+      args:
+        element: ssid_field
+    effect: readonly
+    expect_schema:
+      type: object
+      properties:
+        element: { type: string }
+    expect:
+      - assert_id: ssid_was_typed
+        expr: ${{ eq(steps.set_ssid.output.value, params.ssid) }}
+      - assert_id: reads_back_the_ssid_field
+        expr: ${{ eq(steps.read_back.output.element, "ssid_field") }}

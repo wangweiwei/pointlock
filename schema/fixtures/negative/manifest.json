@@ -1,0 +1,22 @@
+{
+  "description": "Expected schema-rejection reason for every negative fixture in this directory. Kept in a side manifest because the baseline schema is additionalProperties:false everywhere and tolerates no annotation fields inside instances. Completeness (every fixture has an entry and vice versa) is enforced by crates/pointlock-ir/tests/behavioral_equivalence.rs.",
+  "cases": {
+    "act_chain_vision_channel.json": "BoundAttempt.channel is ActChannel (dom|uiTree|coordinate); 'vision' never locates or acts (02 §5.1, principle 7).",
+    "assert_step_empty_assertions.json": "AssertStepIR.assertions has minItems 1 — an assertion-free assert step is meaningless (02 §4.2).",
+    "empty_attempts.json": "ActionBinding.attempts has minItems 1 — an act-chain is never empty (02 §5.1).",
+    "error_classes_on_wrong_hook.json": "HandlerBinding.errorClasses is legal only when hook == 'onError' (02 §10).",
+    "expr_predicate_with_observation_channel.json": "An 'expr' predicate forces verifyVia == []: pure output assertions consume no observation channel (02 §5.3).",
+    "human_on_timeout_not_unknown.json": "HumanStepIR.onTimeout is const 'unknown' — a timed-out human step never defaults to pass or fail (02 §4.4, principle 4).",
+    "invalid_hash_format.json": "Hash grammar is '^sha256:[0-9a-f]{64}$'; uppercase hex violates the canonical single representation (02 §12).",
+    "ir_version_2.json": "irVersion is const 1 in v0.1; runners match exactly and fail closed (02 §11).",
+    "missing_checkpoint.json": "StepBase.checkpoint is required — sealed IR materializes all defaulted fields (single-representation rule, 02 §2.4).",
+    "on_missing_input_not_unknown.json": "AssertionIR.onMissingInput is const 'unknown' — a channel that cannot answer never guesses (02 §5.3, principle 4).",
+    "protection_protected.json": "BoundAttempt.protection is const 'standard' in v0.1; protected actions are rejected at bind (02 §5.1 rule 7, spine R6).",
+    "provide_input_missing_output_schema.json": "mode 'provideInput' requires outputSchema — the human's answer is the step output and must have a contract (02 §4.4).",
+    "purefn_arity_mismatch.json": "PureFn 'not' takes exactly one argument; FnExpr arity is schema-enforced (02 §8.2).",
+    "ref_scope_out_of_bounds.json": "RefPath's scope grammar is closed to params/env/vars/iter/steps; 'secrets.*' is reserved for v0.2 and rejected today (02 §8.1).",
+    "step_unknown_field.json": "Step objects are closed (unevaluatedProperties:false over the StepBase composition); unknown fields are rejected (02 §2.2/§2.3).",
+    "verify_chain_coordinate.json": "AssertionIR.verifyVia items are VerifyChannel (dom|uiTree|vision); a coordinate cannot verify anything (02 §5.3).",
+    "visual_predicate_non_vision_chain.json": "A 'visual' predicate forces verifyVia == [\"vision\"]: only vision can answer a visual question (02 §5.3)."
+  }
+}

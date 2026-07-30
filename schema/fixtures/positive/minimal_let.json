@@ -1,0 +1,30 @@
+{
+  "irVersion": 1,
+  "flowId": "minimal_let",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "provider": {
+    "name": "devicerail",
+    "version": "0.1.0"
+  },
+  "requiredFeatures": [],
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "params": [],
+  "outputs": [],
+  "body": [
+    {
+      "kind": "let",
+      "stepId": "bind",
+      "effectHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "judgeHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "checkpoint": true,
+      "bindings": {
+        "greeting": {
+          "lit": "hello"
+        }
+      }
+    }
+  ],
+  "verdictPolicy": "standard",
+  "sourceMap": [],
+  "subflows": {}
+}

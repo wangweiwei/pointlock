@@ -1,0 +1,47 @@
+[package]
+name = "pointlock-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "The Pointlock command-line interface: lock, compile, run, resume, inspect, locate, report."
+keywords = ["pointlock", "cli", "automation", "workflow", "orchestration"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "pointlock"
+path = "src/main.rs"
+
+[dependencies]
+pointlock-ir = { workspace = true }
+pointlock-expr = { workspace = true }
+pointlock-compiler = { workspace = true }
+pointlock-provider-kit = { workspace = true }
+pointlock-store = { workspace = true }
+pointlock-runner = { workspace = true }
+pointlock-provider-devicerail = { workspace = true }
+pointlock-vision = { workspace = true }
+pointlock-human-cli = { workspace = true }
+
+async-trait = { workspace = true }
+clap = { workspace = true }
+# `inspect --serve`: loopback HTTP host of the projection protocol
+# (spine §10.4 canonical form; SSE revision invalidation; evidence bytes).
+percent-encoding = { workspace = true }
+# The webhook notify-only channel (06 §4.2): one best-effort POST per
+# suspension; blocking is fine — conclude runs outside the runtime.
+reqwest = { workspace = true, features = ["blocking"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tiny_http = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# The e2e suite drives the real binary via std::process::Command
+# (CARGO_BIN_EXE_pointlock) and parses its JSON outputs.
+serde_json = { workspace = true }

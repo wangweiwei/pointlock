@@ -1,0 +1,23 @@
+[package]
+name = "pointlock-compiler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Compiles Pointlock YAML tasks into a sealed, capability-bound FlowIR (parse to normalize to check to bind to seal)."
+keywords = ["pointlock", "compiler", "automation", "workflow", "yaml"]
+categories = ["compilers", "development-tools"]
+
+[dependencies]
+pointlock-ir = { workspace = true }
+pointlock-expr = { workspace = true }
+pointlock-provider-kit = { workspace = true }
+saphyr-parser = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+jsonschema = { workspace = true }

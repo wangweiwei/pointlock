@@ -1,0 +1,31 @@
+{
+  "projectionVersion": 1,
+  "runId": "run-golden",
+  "flowId": "demo",
+  "irHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "lockfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "deviceId": "fake-device-1",
+  "sessionLineage": [
+    "session-1"
+  ],
+  "status": "finished",
+  "revision": 14,
+  "createdAtMs": 1000,
+  "finishedAtMs": 1140,
+  "flowVerdictStatus": "pass",
+  "flowVerdictDegraded": false,
+  "supervisePolicy": null,
+  "awaitingHuman": false,
+  "steps": {
+    "demo@aaaaaaaa/step_a": {
+      "state": "judged",
+      "verdictStatus": "pass",
+      "degraded": false
+    },
+    "demo@aaaaaaaa/step_b": {
+      "state": "judged",
+      "verdictStatus": "pass",
+      "degraded": false
+    }
+  }
+}

@@ -1,0 +1,756 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pointlock:schema:ir:v0.1:flow-ir",
+  "title": "FlowIR",
+  "description": "Pointlock Typed IR v0.1. Sole input accepted by @pointlock/runner; sole output of @pointlock/compiler seal phase. Closed vocabulary per docs/design/00-architecture-spine.md Appendix A. All objects are closed (additionalProperties:false) except the three documented exemption classes: (1) embedded JSON Schema documents (JsonSchemaDocument), (2) identifier-keyed maps (ExprMap, subflows), (3) StepBase, which is composed into step variants via allOf + unevaluatedProperties:false.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "irVersion": { "const": 1 },
+    "flowId": { "$ref": "#/$defs/FlowId" },
+    "irHash": { "$ref": "#/$defs/Hash" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "devicerail" },
+        "version": { "type": "string", "minLength": 1 }
+      },
+      "required": ["name", "version"]
+    },
+    "requiredFeatures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FeatureId" },
+      "uniqueItems": true
+    },
+    "lockfileDigest": { "$ref": "#/$defs/Hash" },
+    "params": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ParamDecl" }
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/OutputDecl" }
+    },
+    "body": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/StepIR" }
+    },
+    "handlers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/HandlerBinding" }
+    },
+    "verdictPolicy": { "enum": ["standard", "strict"] },
+    "sourceMap": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SourceMapEntry" }
+    },
+    "subflows": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/FlowRef" }
+    }
+  },
+  "required": [
+    "irVersion",
+    "flowId",
+    "irHash",
+    "provider",
+    "requiredFeatures",
+    "lockfileDigest",
+    "params",
+    "outputs",
+    "body",
+    "verdictPolicy",
+    "sourceMap",
+    "subflows"
+  ],
+  "$defs": {
+    "Hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Content hash, canonical form 'sha256:<64 lowercase hex>'."
+    },
+    "FlowId": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+      "maxLength": 256
+    },
+    "StepId": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(:[A-Za-z_][A-Za-z0-9_-]*)*$",
+      "maxLength": 256,
+      "description": "Author-written ids use the first segment only ([A-Za-z_][A-Za-z0-9_-]*). ':'-separated segments are reserved for compiler-synthesized ids (e.g. handler-embedded human steps 'host:onFail:escalate'); synthesized ids never appear in ref paths."
+    },
+    "Identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "maxLength": 128
+    },
+    "FeatureId": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-zA-Z0-9]+)*\\.v[0-9]+$",
+      "description": "DeviceRail feature id passthrough (e.g. 'device.semanticActions.v1'); future Pointlock-owned features use the 'pointlock.' prefix."
+    },
+    "ActionName": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+      "maxLength": 256,
+      "description": "Provider-native action name (DeviceRail camelCase, e.g. 'tapElement'). Canonical verbs never appear here; provider-qualified names ('<provider>:<action>') are reserved for multi-provider futures and rejected in v0.1."
+    },
+    "EffectClassAction": {
+      "enum": ["mutating", "readonly"],
+      "description": "EffectClass restricted for action steps; 'pure' is excluded because pure computation never crosses a Provider."
+    },
+    "ActChannel": {
+      "enum": ["dom", "uiTree", "coordinate"],
+      "description": "Channel subset legal on the act-chain. 'vision' is structurally excluded (principle 7: vision never locates or acts)."
+    },
+    "VerifyChannel": {
+      "enum": ["dom", "uiTree", "vision"],
+      "description": "Channel subset legal on the verify-chain. 'coordinate' is structurally excluded (a coordinate cannot verify anything)."
+    },
+    "ExecutionMode": {
+      "enum": ["nativeSemantic", "webSemantic", "coordinateFallback"]
+    },
+    "ErrorClass": {
+      "enum": [
+        "capability_drift",
+        "bind_arguments_invalid",
+        "action_failed_retryable",
+        "action_failed_final",
+        "action_timed_out",
+        "action_cancelled",
+        "target_stale",
+        "transport_lost",
+        "session_degraded"
+      ]
+    },
+    "CanonicalVerb": {
+      "enum": ["tap", "set_value", "clear", "wait_for", "find", "observe", "screenshot", "invoke"],
+      "description": "Report/metadata only. The runner has no verb switch; execution is driven exclusively by BoundAttempt.actionName."
+    },
+    "JsonSchemaDocument": {
+      "anyOf": [{ "type": "object" }, { "type": "boolean" }],
+      "description": "An embedded JSON Schema (Draft 2020-12) document. Deliberately open (exemption class 1): its internal grammar is governed by the JSON Schema meta-schema, not by this schema."
+    },
+    "RefPath": {
+      "type": "string",
+      "pattern": "^(params\\.[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*|env\\.[A-Za-z_][A-Za-z0-9_]*|vars\\.[A-Za-z_][A-Za-z0-9_]*|iter\\.[A-Za-z_][A-Za-z0-9_]*|steps\\.[A-Za-z_][A-Za-z0-9_-]*\\.(verdict|output(\\.[A-Za-z_][A-Za-z0-9_]*)*))$",
+      "maxLength": 1024,
+      "description": "Closed scope grammar: params.* | env.* | vars.* | iter.* | steps.<id>.output(.field)* | steps.<id>.verdict. Dotted identifier segments only; array/deep access goes through the jsonPath pure function."
+    },
+    "Expr": {
+      "oneOf": [
+        { "$ref": "#/$defs/LitExpr" },
+        { "$ref": "#/$defs/RefExpr" },
+        { "$ref": "#/$defs/FnExpr" }
+      ]
+    },
+    "LitExpr": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "lit": true },
+      "required": ["lit"],
+      "description": "Literal JSON value (any JSON type, including null)."
+    },
+    "RefExpr": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "ref": { "$ref": "#/$defs/RefPath" } },
+      "required": ["ref"]
+    },
+    "PureFn": {
+      "enum": ["eq", "ne", "not", "and", "or", "concat", "len", "coalesce", "jsonPath", "regexMatch"]
+    },
+    "FnExpr": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fn": { "$ref": "#/$defs/PureFn" },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" }
+        }
+      },
+      "required": ["fn", "args"],
+      "allOf": [
+        {
+          "if": { "properties": { "fn": { "enum": ["eq", "ne", "jsonPath"] } } },
+          "then": { "properties": { "args": { "minItems": 2, "maxItems": 2 } } }
+        },
+        {
+          "if": { "properties": { "fn": { "enum": ["not", "len"] } } },
+          "then": { "properties": { "args": { "minItems": 1, "maxItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "fn": { "enum": ["and", "or", "coalesce"] } } },
+          "then": { "properties": { "args": { "minItems": 2 } } }
+        },
+        {
+          "if": { "properties": { "fn": { "const": "concat" } } },
+          "then": { "properties": { "args": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "fn": { "const": "regexMatch" } } },
+          "then": { "properties": { "args": { "minItems": 2, "maxItems": 3 } } }
+        }
+      ],
+      "description": "Whitelisted pure functions only; arity enforced here, argument types plus the literal-only constraints (jsonPath path, regexMatch pattern/flags) enforced in the compiler check phase."
+    },
+    "ExprMap": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/Expr" },
+      "description": "Identifier-keyed map of expressions (exemption class 2: keys are data, constrained by propertyNames)."
+    },
+    "ParamDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "schema": { "$ref": "#/$defs/JsonSchemaDocument" },
+        "required": { "type": "boolean" },
+        "default": true
+      },
+      "required": ["name", "schema", "required"]
+    },
+    "OutputDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "schema": { "$ref": "#/$defs/JsonSchemaDocument" },
+        "from": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["name", "schema", "from"]
+    },
+    "FlowRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flowId": { "$ref": "#/$defs/FlowId" },
+        "irHash": { "$ref": "#/$defs/Hash" }
+      },
+      "required": ["flowId", "irHash"]
+    },
+    "StepBase": {
+      "type": "object",
+      "properties": {
+        "stepId": { "$ref": "#/$defs/StepId" },
+        "effectHash": { "$ref": "#/$defs/Hash" },
+        "judgeHash": { "$ref": "#/$defs/Hash" },
+        "preflight": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/AssertionIR" }
+        },
+        "retry": { "$ref": "#/$defs/RetryPolicy" },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "handlers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/HandlerBinding" }
+        },
+        "checkpoint": { "type": "boolean" }
+      },
+      "required": ["stepId", "effectHash", "judgeHash", "checkpoint"],
+      "description": "Common step envelope. Deliberately NOT closed (exemption class 3): each StepIR variant composes it via allOf and closes itself with unevaluatedProperties:false. 'checkpoint' is required because sealed IR materializes all defaulted fields (single-representation rule for hashing)."
+    },
+    "StepIR": {
+      "oneOf": [
+        { "$ref": "#/$defs/ActionStepIR" },
+        { "$ref": "#/$defs/AssertStepIR" },
+        { "$ref": "#/$defs/CallStepIR" },
+        { "$ref": "#/$defs/HumanStepIR" },
+        { "$ref": "#/$defs/IfStepIR" },
+        { "$ref": "#/$defs/ForeachStepIR" },
+        { "$ref": "#/$defs/LetStepIR" }
+      ]
+    },
+    "ActionStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "action" },
+        "verb": { "$ref": "#/$defs/CanonicalVerb" },
+        "effect": { "$ref": "#/$defs/EffectClassAction" },
+        "idempotent": { "type": "boolean" },
+        "binding": { "$ref": "#/$defs/ActionBinding" },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AssertionIR" }
+        },
+        "outputs": { "$ref": "#/$defs/ExprMap" },
+        "outputSchema": { "$ref": "#/$defs/JsonSchemaDocument" }
+      },
+      "required": ["kind", "effect", "idempotent", "binding", "assertions"],
+      "unevaluatedProperties": false,
+      "description": "assertions MAY be empty: a mutating action step without assertions yields no verdict (report annotation 'unverified', spine R4)."
+    },
+    "ActionBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/BoundAttempt" }
+        }
+      },
+      "required": ["attempts"],
+      "description": "Ordered, closed act-chain. No declared fallback => exactly one attempt (principle 6: the runner never improvises a downgrade)."
+    },
+    "BoundAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "$ref": "#/$defs/ActChannel" },
+        "actionName": { "$ref": "#/$defs/ActionName" },
+        "args": { "$ref": "#/$defs/ExprMap" },
+        "requiresFeature": { "$ref": "#/$defs/FeatureId" },
+        "acceptExecutionModes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ExecutionMode" }
+        },
+        "protection": { "const": "standard" }
+      },
+      "required": ["channel", "actionName", "args", "acceptExecutionModes", "protection"],
+      "description": "protection is const 'standard' in v0.1: bind rejects protected actions (spine R6). 'coordinate' attempts must carry literal static coordinates in args (bind-phase check)."
+    },
+    "AssertionIR": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assertId": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "maxLength": 128
+        },
+        "predicate": { "$ref": "#/$defs/PredicateIR" },
+        "verifyVia": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/VerifyChannel" }
+        },
+        "visionPrompt": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "onMissingInput": { "const": "unknown" }
+      },
+      "required": ["assertId", "predicate", "verifyVia", "onMissingInput"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "predicate": {
+                "type": "object",
+                "properties": { "type": { "const": "expr" } },
+                "required": ["type"]
+              }
+            },
+            "required": ["predicate"]
+          },
+          "then": {
+            "properties": { "verifyVia": { "maxItems": 0 } }
+          },
+          "else": {
+            "properties": { "verifyVia": { "minItems": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "predicate": {
+                "type": "object",
+                "properties": { "type": { "const": "visual" } },
+                "required": ["type"]
+              }
+            },
+            "required": ["predicate"]
+          },
+          "then": {
+            "properties": {
+              "verifyVia": { "const": ["vision"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "predicate": {
+                "type": "object",
+                "properties": { "type": { "enum": ["elementState", "elementText"] } },
+                "required": ["type"]
+              },
+              "verifyVia": {
+                "type": "array",
+                "contains": { "const": "vision" }
+              }
+            },
+            "required": ["predicate", "verifyVia"]
+          },
+          "then": { "required": ["visionPrompt"] },
+          "else": { "not": { "required": ["visionPrompt"] } }
+        }
+      ],
+      "description": "onMissingInput is const 'unknown' (principle 4): a channel that cannot complete evaluation yields unknown for that channel and the chain advances; an exhausted chain yields unknown. 'expr' predicates consume no observation channel (verifyVia = []); 'visual' predicates are vision-only. visionPrompt is the author-written prompt handed verbatim to the VisionVerifier when 'vision' is the declared degraded tail of an elementState/elementText verify-chain (YAML surface key 'visual', 03 §1.4 rule 5): required iff such a chain contains 'vision', forbidden otherwise — 'visual' predicates carry their prompt inside the predicate, and the compiler never synthesizes vision prompts (principle 6, compile error E3). visionPrompt is part of the assertion and thus inside the judgeHash domain (02 §12.3). 'vision only at chain tail' for element predicates remains a bind-phase check (not order-expressible here)."
+    },
+    "PredicateIR": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "elementState" },
+            "selector": { "$ref": "#/$defs/ElementSelectorIR" },
+            "state": { "enum": ["present", "visible", "enabled", "absent"] }
+          },
+          "required": ["type", "selector", "state"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "elementText" },
+            "selector": { "$ref": "#/$defs/ElementSelectorIR" },
+            "match": { "$ref": "#/$defs/TextMatchIR" }
+          },
+          "required": ["type", "selector", "match"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "expr" },
+            "expr": { "$ref": "#/$defs/Expr" }
+          },
+          "required": ["type", "expr"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "visual" },
+            "prompt": { "type": "string", "minLength": 1, "maxLength": 16384 },
+            "region": { "$ref": "#/$defs/RectIR" }
+          },
+          "required": ["type", "prompt"]
+        }
+      ],
+      "description": "elementState values equal DeviceRail WaitForElementCondition verbatim."
+    },
+    "ElementSelectorIR": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contextKind": { "enum": ["native", "web"] },
+            "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          },
+          "required": ["contextKind"]
+        },
+        "role": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "identifier": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "text": { "$ref": "#/$defs/TextMatchIR" },
+        "value": { "type": "string", "maxLength": 65536 },
+        "css": { "type": "string", "minLength": 1, "maxLength": 65536 }
+      },
+      "description": "Isomorphic to DeviceRail ElementSelector (field names and limits verbatim), with one canonicalization difference: absence is expressed by omitting the field, never by null (single-representation rule for hashing)."
+    },
+    "TextMatchIR": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "mode": { "enum": ["exact", "contains"] },
+        "caseSensitive": { "type": "boolean" }
+      },
+      "required": ["value", "mode", "caseSensitive"],
+      "description": "Isomorphic to DeviceRail TextMatch; mode/caseSensitive are required because sealed IR materializes defaults (exact / false)."
+    },
+    "RectIR": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 }
+      },
+      "required": ["x", "y", "width", "height"],
+      "description": "Field-compatible with DeviceRail UiRect."
+    },
+    "AssertStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "assert" },
+        "observe": { "$ref": "#/$defs/ObservationSource" },
+        "assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/AssertionIR" }
+        }
+      },
+      "required": ["kind", "observe", "assertions"],
+      "unevaluatedProperties": false
+    },
+    "ObservationSource": {
+      "oneOf": [
+        { "const": "fresh" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fromStep": { "$ref": "#/$defs/StepId" },
+            "which": { "enum": ["after", "before"] }
+          },
+          "required": ["fromStep", "which"]
+        }
+      ]
+    },
+    "CallStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "call" },
+        "flowRef": { "$ref": "#/$defs/FlowRef" },
+        "inputs": { "$ref": "#/$defs/ExprMap" }
+      },
+      "required": ["kind", "flowRef", "inputs"],
+      "unevaluatedProperties": false,
+      "description": "Callee pinned by content hash (flowRef.irHash must appear in FlowIR.subflows). Call-by-value: inputs are evaluated in the caller scope and snapshotted."
+    },
+    "HumanStepIR": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/StepBase" },
+        {
+          "if": {
+            "properties": { "mode": { "const": "provideInput" } },
+            "required": ["mode"]
+          },
+          "then": { "required": ["outputSchema"] }
+        }
+      ],
+      "properties": {
+        "kind": { "const": "human" },
+        "mode": { "enum": ["confirm", "judge", "provideInput", "repairWorld"] },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "presents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" }
+        },
+        "decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "outputSchema": { "$ref": "#/$defs/JsonSchemaDocument" },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "onTimeout": { "const": "unknown" }
+      },
+      "required": ["kind", "mode", "prompt", "presents", "timeoutMs", "onTimeout"],
+      "unevaluatedProperties": false,
+      "description": "onTimeout is const 'unknown': a human step that times out never defaults to pass or fail (principle 4/8). timeoutMs is required on human steps (unbounded waits are runSuspended, not silent hangs)."
+    },
+    "IfStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "if" },
+        "cond": { "$ref": "#/$defs/Expr" },
+        "then": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/StepIR" }
+        },
+        "else": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/StepIR" }
+        }
+      },
+      "required": ["kind", "cond", "then"],
+      "unevaluatedProperties": false
+    },
+    "ForeachStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "foreach" },
+        "items": { "$ref": "#/$defs/Expr" },
+        "as": { "$ref": "#/$defs/Identifier" },
+        "body": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/StepIR" }
+        }
+      },
+      "required": ["kind", "items", "as", "body"],
+      "unevaluatedProperties": false
+    },
+    "LetStepIR": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "properties": {
+        "kind": { "const": "let" },
+        "bindings": {
+          "allOf": [{ "$ref": "#/$defs/ExprMap" }],
+          "type": "object",
+          "minProperties": 1
+        }
+      },
+      "required": ["kind", "bindings"],
+      "unevaluatedProperties": false,
+      "description": "vars.* scope, SSA single assignment (rebinding an existing var name is a check-phase error)."
+    },
+    "RetryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxAttempts": { "type": "integer", "minimum": 1 },
+        "backoffMs": {
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "initial": { "type": "number", "minimum": 0 },
+                "factor": { "type": "number", "minimum": 1 },
+                "max": { "type": "number", "minimum": 0 }
+              },
+              "required": ["initial", "factor", "max"]
+            }
+          ]
+        },
+        "retryOn": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ErrorClass" }
+        }
+      },
+      "required": ["maxAttempts", "backoffMs", "retryOn"],
+      "description": "Applies to the act phase only (spine 6.5 mount point 1). Each retry mints a new callId and a new actionIntent WAL record."
+    },
+    "HandlerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hook": { "enum": ["onFail", "onUnknown", "onError", "onResumeDrift"] },
+        "errorClasses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ErrorClass" }
+        },
+        "action": { "$ref": "#/$defs/HandlerAction" },
+        "maxTriggers": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["hook", "action", "maxTriggers"],
+      "if": {
+        "properties": { "hook": { "const": "onError" } },
+        "required": ["hook"]
+      },
+      "else": {
+        "not": { "required": ["errorClasses"] }
+      },
+      "description": "errorClasses filter is legal only on onError. Handlers yield dispositions, never data-flow outputs (spine R10)."
+    },
+    "HandlerAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "retry" },
+            "policy": { "$ref": "#/$defs/RetryPolicy" }
+          },
+          "required": ["kind", "policy"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "continue" } },
+          "required": ["kind"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "escalate" },
+            "human": { "$ref": "#/$defs/HumanStepIR" }
+          },
+          "required": ["kind", "human"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "abort" } },
+          "required": ["kind"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "repair" },
+            "flowRef": { "$ref": "#/$defs/FlowRef" }
+          },
+          "required": ["kind", "flowRef"]
+        }
+      ],
+      "description": "kind values are the closed Disposition enum minus none: retry|continue|escalate|abort|repair."
+    },
+    "SourceMapEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "irPath": {
+          "type": "string",
+          "pattern": "^(/([^~/]|~0|~1)*)*$",
+          "description": "RFC 6901 JSON Pointer into this FlowIR document."
+        },
+        "file": { "type": "string", "minLength": 1 },
+        "span": { "$ref": "#/$defs/SourceSpan" },
+        "origin": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/MacroOriginFrame" },
+          "description": "Macro expansion chain, innermost first. Present iff the IR node was produced by macro expansion."
+        }
+      },
+      "required": ["irPath", "file", "span"]
+    },
+    "SourceSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startCol": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endCol": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["startLine", "startCol", "endLine", "endCol"]
+    },
+    "MacroOriginFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "macro": { "$ref": "#/$defs/Identifier" },
+        "file": { "type": "string", "minLength": 1 },
+        "span": { "$ref": "#/$defs/SourceSpan" }
+      },
+      "required": ["macro", "file", "span"]
+    }
+  }
+}

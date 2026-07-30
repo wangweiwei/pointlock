@@ -1,0 +1,68 @@
+name: 🐛 Bug report
+description: Report something that isn't working as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please search existing issues first.
+        For security vulnerabilities, do **not** use this form — see [SECURITY.md](../blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Ideally a minimal `*.flow.yaml` / IR / CLI command sequence.
+      placeholder: |
+        1. cargo run -p pointlock-cli -- lock ...
+        2. ... compile ...
+        3. ... run ...
+        4. observed ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - compiler (pointlock-compiler)
+        - runner (pointlock-runner)
+        - store (pointlock-store)
+        - provider — devicerail
+        - provider-kit / SPI
+        - vision (pointlock-vision)
+        - cli
+        - projection / UI (@pointlock/ui)
+        - nl-drafter
+        - docs
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD` or the release tag.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Rust version (`rustc --version`), Node version if UI-related.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Relevant CLI output, ledger excerpts, or errors. This will be rendered as code.
+      render: shell
+    validations:
+      required: false
