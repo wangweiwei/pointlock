@@ -33,27 +33,17 @@ jobs:
 
       # The workspace can only be *resolved* with the DeviceRail client present:
       # pointlock-provider-devicerail (a member) depends on it via the sibling
-      # path `../device-rail/crates/client`. Set the repository variable
-      # DEVICERAIL_REPO (owner/name); checking it out next to `pointlock/` makes
-      # the path resolve. The repository is public, so no token is passed: an
-      # unset DEVICERAIL_TOKEN would arrive as an empty string, which
-      # `actions/checkout` rejects outright ("Input required and not supplied")
-      # instead of treating as absent. For a private sibling, add back
-      # `token: ${{ secrets.DEVICERAIL_TOKEN }}`.
-      # Fail fast with the actual cause. Left unset, `repository:` receives an
-      # empty string and actions/checkout silently falls back to checking out
-      # THIS repository into device-rail/ — the failure then surfaces much
-      # later as a baffling cargo metadata error inside the gates.
-      - name: Require the DEVICERAIL_REPO repository variable
-        if: ${{ vars.DEVICERAIL_REPO == '' }}
-        run: |
-          echo "::error::Repository variable DEVICERAIL_REPO is not set. Add it under Settings → Secrets and variables → Actions → Variables (the Variables tab, not Secrets) with value owner/name of the DeviceRail repo, then re-run this workflow."
-          exit 1
-
+      # path `../device-rail/crates/client`; checking it out next to
+      # `pointlock/` makes the path resolve. The sibling is public at a fixed
+      # address, so it is the default here — the DEVICERAIL_REPO repository
+      # variable is only an override for forks. No token is passed: an unset
+      # secret would arrive as an empty string, which `actions/checkout`
+      # rejects outright instead of treating as absent. For a private sibling,
+      # add back `token: ${{ secrets.DEVICERAIL_TOKEN }}`.
       - name: Check out the DeviceRail sibling (workspace resolution)
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.DEVICERAIL_REPO }}
+          repository: ${{ vars.DEVICERAIL_REPO || 'wangweiwei/device-rail' }}
           path: device-rail
 
       - name: Verify the sibling checkout is really DeviceRail

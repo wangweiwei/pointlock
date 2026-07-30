@@ -29,32 +29,16 @@ jobs:
       - run: pnpm -r build
       - run: pnpm -r test
 
-  # Companion of the gated Rust job: when DEVICERAIL_REPO is unset the
-  # Rust gates CANNOT run (the workspace references the sibling client by
-  # path) — this job then turns that silence into a visible warning
-  # annotation, so a green run never quietly means "Rust untested".
-  rust-gate-notice:
-    name: Rust (SKIPPED — DEVICERAIL_REPO unset)
-    runs-on: ubuntu-latest
-    if: ${{ vars.DEVICERAIL_REPO == '' }}
-    steps:
-      - run: |
-          echo "::warning title=Rust gates skipped::DEVICERAIL_REPO is not configured — fmt/clippy/test did NOT run. Set the repository variable (Settings → Variables) to activate the Rust job. See CONTRIBUTING.md."
-
-  # Rust core — needs the DeviceRail client, referenced as a sibling path checkout
-  # (../device-rail/crates/client) until it is published to crates.io. This job is
-  # SKIPPED unless a repository variable `DEVICERAIL_REPO` is set (owner/name of the
-  # DeviceRail repo the runner can access); set it under Settings → Secrets and
-  # variables → Actions → Variables to activate the job.
-  # The DeviceRail repo is public, so the sibling checkout passes no token: an
-  # unset DEVICERAIL_TOKEN would arrive as an empty string, which
-  # `actions/checkout` rejects outright instead of treating as absent. For a
-  # private sibling, add the secret back as `token:` on the checkout step.
-  # See CONTRIBUTING.md.
+  # Rust core — needs the DeviceRail client, referenced as a sibling path
+  # checkout (../device-rail/crates/client). The sibling is public at a fixed
+  # address, so it is the default; the DEVICERAIL_REPO repository variable is
+  # only an override for forks. No token is passed: an unset DEVICERAIL_TOKEN
+  # would arrive as an empty string, which `actions/checkout` rejects outright
+  # instead of treating as absent. For a private sibling, add the secret back
+  # as `token:` on the checkout step. See CONTRIBUTING.md.
   rust:
     name: Rust (fmt + clippy + test)
     runs-on: ubuntu-latest
-    if: ${{ vars.DEVICERAIL_REPO != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,7 +46,7 @@ jobs:
       - name: Check out DeviceRail sibling
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.DEVICERAIL_REPO }}
+          repository: ${{ vars.DEVICERAIL_REPO || 'wangweiwei/device-rail' }}
           path: device-rail
       - uses: dtolnay/rust-toolchain@stable
         with:
