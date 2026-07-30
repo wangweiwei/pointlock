@@ -15,7 +15,8 @@
     "url": "https://github.com/wangweiwei/pointlock/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "exports": {
     ".": {

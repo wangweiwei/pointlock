@@ -4,5 +4,5 @@
 export * from "./flow-graph-view.js";
 export * from "./run-timeline.js";
 export * from "./step-dossier-view.js";
-export * from "./human-inbox-entry.js";
-export * from "./run-overview.js";
+export type { HumanInboxEntry } from "./human-inbox-entry.js";
+export type { RunOverview, AlignmentSummary, StepStateSummary, ActChainMark } from "./run-overview.js";

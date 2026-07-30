@@ -271,7 +271,9 @@ describe("dossier helpers", () => {
 });
 
 describe("subflow expansion (08 §3.3)", () => {
-  const callNode = (view as FlowGraphView).nodes.find((n) => n.kind === "call");
+  const callNode = (view as FlowGraphView).nodes.find(
+    (n: FlowGraphView["nodes"][number]) => n.kind === "call",
+  );
 
   it("the golden call node exists and is collapsed by default", () => {
     expect(callNode).toBeDefined();

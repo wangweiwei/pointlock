@@ -87,6 +87,7 @@ function forceUnknownForUntyped(schema) {
 }
 
 const indexExports = [];
+const exportedNames = new Set();
 for (const family of FAMILIES) {
   const schema = JSON.parse(
     await readFile(join(schemaDir, `${family.stem}.schema.json`), "utf8"),
@@ -101,7 +102,26 @@ for (const family of FAMILIES) {
     format: false,
   });
   await writeFile(join(srcDir, `${family.stem}.d.ts`), types);
-  indexExports.push(`export * from "./${family.stem}.js";`);
+  // Shared leaf types (StepId, PathFrame, …) are emitted into every family
+  // that references them, so a barrel of bare `export *` lines makes those
+  // names ambiguous: TypeScript reports TS2308 against this package for any
+  // consumer that has not opted into skipLibCheck. Re-export each name from
+  // exactly one family — the first that declares it — and let the rest fall
+  // through, so the barrel stays unambiguous while every name is reachable.
+  const declared = [...types.matchAll(/^export (?:type|interface) (\w+)/gmu)].map(
+    (match) => match[1],
+  );
+  const fresh = declared.filter((name) => !exportedNames.has(name));
+  for (const name of fresh) {
+    exportedNames.add(name);
+  }
+  if (fresh.length === declared.length) {
+    indexExports.push(`export * from "./${family.stem}.js";`);
+  } else if (fresh.length > 0) {
+    indexExports.push(
+      `export type { ${fresh.join(", ")} } from "./${family.stem}.js";`,
+    );
+  }
   console.log(`generated src/${family.stem}.d.ts`);
 }
 await writeFile(join(srcDir, "index.d.ts"), `${banner}${indexExports.join("\n")}\n`);
