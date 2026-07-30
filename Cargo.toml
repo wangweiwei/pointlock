@@ -14,7 +14,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
@@ -26,15 +26,15 @@ publish = true
 # Internal crates (referenced by members via `workspace = true`).
 # path + version: cargo builds against the local path in-workspace and
 # publishes against the version on crates.io (a published dep must carry a version).
-pointlock-ir = { path = "crates/pointlock-ir", version = "0.1.4" }
-pointlock-expr = { path = "crates/pointlock-expr", version = "0.1.4" }
-pointlock-compiler = { path = "crates/pointlock-compiler", version = "0.1.4" }
-pointlock-provider-kit = { path = "crates/pointlock-provider-kit", version = "0.1.4" }
-pointlock-store = { path = "crates/pointlock-store", version = "0.1.4" }
-pointlock-runner = { path = "crates/pointlock-runner", version = "0.1.4" }
-pointlock-provider-devicerail = { path = "crates/pointlock-provider-devicerail", version = "0.1.4" }
-pointlock-vision = { path = "crates/pointlock-vision", version = "0.1.4" }
-pointlock-human-cli = { path = "crates/pointlock-human-cli", version = "0.1.4" }
+pointlock-ir = { path = "crates/pointlock-ir", version = "0.1.5" }
+pointlock-expr = { path = "crates/pointlock-expr", version = "0.1.5" }
+pointlock-compiler = { path = "crates/pointlock-compiler", version = "0.1.5" }
+pointlock-provider-kit = { path = "crates/pointlock-provider-kit", version = "0.1.5" }
+pointlock-store = { path = "crates/pointlock-store", version = "0.1.5" }
+pointlock-runner = { path = "crates/pointlock-runner", version = "0.1.5" }
+pointlock-provider-devicerail = { path = "crates/pointlock-provider-devicerail", version = "0.1.5" }
+pointlock-vision = { path = "crates/pointlock-vision", version = "0.1.5" }
+pointlock-human-cli = { path = "crates/pointlock-human-cli", version = "0.1.5" }
 
 # DeviceRail Rust client (implemented in the sibling DeviceRail repository).
 # The path keeps local development on the sibling checkout; the version is

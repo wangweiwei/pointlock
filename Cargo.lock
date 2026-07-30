@@ -1110,7 +1110,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "pointlock-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "clap",
@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-compiler"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "jsonschema",
  "pointlock-expr",
@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-expr"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "pointlock-ir",
  "regex",
@@ -1160,7 +1160,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-human-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "gethostname",
  "hmac",
@@ -1173,7 +1173,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-ir"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "jsonschema",
  "schemars",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-provider-devicerail"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "devicerail-client",
@@ -1199,7 +1199,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-provider-kit"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "futures-core",
@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-runner"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -1236,7 +1236,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-store"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "jsonschema",
  "pointlock-ir",
@@ -1251,7 +1251,7 @@ dependencies = [
 
 [[package]]
 name = "pointlock-vision"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "base64",
