@@ -26,6 +26,12 @@ jobs:
   crates:
     name: publish crates to crates.io
     runs-on: ubuntu-latest
+    # Matches the sibling DeviceRail repo: the registry credential lives on a
+    # protected environment rather than as a repository secret, so it is only
+    # reachable from this job. A job that does not declare the environment
+    # cannot read its secrets — `secrets.CARGO_REGISTRY_TOKEN` would silently
+    # be empty and `cargo publish` would fail with "non-empty token".
+    environment: crates-io
     steps:
       - uses: actions/checkout@v4
         with:
@@ -131,10 +137,10 @@ jobs:
           generate_release_notes: true
 
   # ---------------------------------------------------------------------------
-  # npm — opt-in. Set the repository variable PUBLISH_NPM=true and the secret
-  # NPM_TOKEN (an automation token for the @pointlock scope) to enable.
-  # Publishes only the two library packages; ir-types (generated,
-  # type-only — private until its consumption surface stabilizes),
+  # npm — opt-in. Set the repository variable PUBLISH_NPM=true and put an
+  # automation token for the @pointlock scope on the `npm` environment as
+  # NPM_TOKEN to enable. Publishes only the two library packages; ir-types
+  # (generated, type-only — private until its consumption surface stabilizes),
   # walk-drafter (registered in spine A.1, unpublished in v0.1) and ui
   # (app) stay private.
   # ---------------------------------------------------------------------------
@@ -143,6 +149,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: crates
     if: ${{ vars.PUBLISH_NPM == 'true' }}
+    # Same rationale as the crates job: the credential is scoped to a
+    # protected environment. A repository secret of the same name still
+    # resolves here, so an existing repo-level NPM_TOKEN keeps working.
+    environment: npm
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
