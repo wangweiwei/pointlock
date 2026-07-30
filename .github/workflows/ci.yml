@@ -63,7 +63,14 @@ jobs:
       - name: test
         working-directory: pointlock
         run: cargo test --workspace
+      # This job checks the repo out into `pointlock/` so the DeviceRail
+      # sibling can sit beside it, so the action must be pointed at the real
+      # manifest — its default is the workspace root, which holds no
+      # package.json and yields "No pnpm version is specified". Naming the
+      # file keeps the version single-sourced from `packageManager`.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pointlock/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
