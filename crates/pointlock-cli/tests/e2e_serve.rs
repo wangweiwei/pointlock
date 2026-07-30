@@ -159,7 +159,38 @@ impl ServeHost {
             .parse()
             .expect("numeric port");
         let token = url.split("token=").nth(1).expect("token in url").to_owned();
+        Self::await_ready(port);
         ServeHost { child, port, token }
+    }
+
+    /// The printed URL only proves the listener is bound; the accept →
+    /// parse → respond pipeline behind it may still be starting. Probe
+    /// with a real request until any HTTP response comes back (a token
+    /// refusal is fine — it exercises the whole pipeline), so the first
+    /// request a test makes can never race the host's startup.
+    fn await_ready(port: u16) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) {
+                let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+                let mut raw = String::new();
+                if write!(
+                    stream,
+                    "GET /api/flows HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+                )
+                .is_ok()
+                    && stream.read_to_string(&mut raw).is_ok()
+                    && raw.starts_with("HTTP/1.1 ")
+                {
+                    return;
+                }
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "serve host never became ready on port {port}"
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     /// Minimal HTTP/1.1 request over loopback; returns (status, body).
